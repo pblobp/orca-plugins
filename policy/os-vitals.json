@@ -1,0 +1,12 @@
+{
+  "modules": ["node:child_process", "node:fs", "node:os", "node:path", "node:timers", "node:url"],
+  "programs": ["/bin/ps", "/usr/bin/vm_stat", "/usr/sbin/sysctl", "/usr/sbin/ioreg"],
+  "dynamicPrograms": [
+    {
+      "file": "src/cli.ts",
+      "function": "runOrcaCli",
+      "reason": "Runs Orca's own CLI (orca plugin list, orca plugin open) to open the panel from the status bar item. Its path is inside Orca's app bundle, found from the worker's process.execPath at run time, so it cannot be a literal."
+    }
+  ],
+  "hosts": []
+}

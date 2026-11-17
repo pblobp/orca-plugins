@@ -1,0 +1,187 @@
++-o Root  <class IORegistryEntry, id 0x100000100, retain 37>
+  +-o device-tree  <class IOPlatformExpertDevice, id 0x1000002ca, registered, matched, active, busy 0 (161412 ms), retain 39>
+    +-o cpus  <class IOPlatformDevice, id 0x100000300, registered, matched, active, busy 0 (8 ms), retain 20>
+    | | {
+    | |   "cpu-cluster-count" = <03000000>
+    | |   "p-core-count" = <0a000000>
+    | |   "e-core-count" = <04000000>
+    | |   "name" = <"cpus">
+    | | }
+    | | 
+    | +-o cpu0@0  <class IOPlatformDevice, id 0x1000002f2, registered, matched, active, busy 0 (3 ms), retain 8>
+    | |   {
+    | |     "cluster-type" = <"E">
+    | |     "cpu-id" = <00000000>
+    | |     "logical-cluster-id" = 0
+    | |     "name" = <"cpu0">
+    | |     "state" = <"waiting">
+    | |     "device_type" = <"cpu">
+    | |     "logical-cpu-id" = 0
+    | |     "reg" = <00000000>
+    | |   }
+    | |   
+    | +-o cpu1@1  <class IOPlatformDevice, id 0x1000002f3, registered, matched, active, busy 0 (9 ms), retain 8>
+    | |   {
+    | |     "cluster-type" = <"E">
+    | |     "cpu-id" = <01000000>
+    | |     "logical-cluster-id" = 0
+    | |     "name" = <"cpu1">
+    | |     "state" = <"waiting">
+    | |     "device_type" = <"cpu">
+    | |     "logical-cpu-id" = 1
+    | |     "reg" = <01000000>
+    | |   }
+    | |   
+    | +-o cpu2@2  <class IOPlatformDevice, id 0x1000002f4, registered, matched, active, busy 0 (7 ms), retain 8>
+    | |   {
+    | |     "cluster-type" = <"E">
+    | |     "cpu-id" = <02000000>
+    | |     "logical-cluster-id" = 0
+    | |     "name" = <"cpu2">
+    | |     "state" = <"waiting">
+    | |     "device_type" = <"cpu">
+    | |     "logical-cpu-id" = 2
+    | |     "reg" = <02000000>
+    | |   }
+    | |   
+    | +-o cpu3@3  <class IOPlatformDevice, id 0x1000002f5, registered, matched, active, busy 0 (9 ms), retain 8>
+    | |   {
+    | |     "cluster-type" = <"E">
+    | |     "cpu-id" = <03000000>
+    | |     "logical-cluster-id" = 0
+    | |     "name" = <"cpu3">
+    | |     "state" = <"waiting">
+    | |     "device_type" = <"cpu">
+    | |     "logical-cpu-id" = 3
+    | |     "reg" = <03000000>
+    | |   }
+    | |   
+    | +-o cpu4@100  <class IOPlatformDevice, id 0x1000002f6, registered, matched, active, busy 0 (9 ms), retain 8>
+    | |   {
+    | |     "logical-cluster-id" = 1
+    | |     "state" = <"running">
+    | |     "logical-cpu-id" = 4
+    | |     "cpu-id" = <04000000>
+    | |     "name" = <"cpu4">
+    | |     "cluster-type" = <"P">
+    | |     "device_type" = <"cpu">
+    | |     "reg" = <00010000>
+    | |   }
+    | |   
+    | +-o cpu5@101  <class IOPlatformDevice, id 0x1000002f7, registered, matched, active, busy 0 (8 ms), retain 8>
+    | |   {
+    | |     "cluster-type" = <"P">
+    | |     "cpu-id" = <05000000>
+    | |     "logical-cluster-id" = 1
+    | |     "name" = <"cpu5">
+    | |     "state" = <"waiting">
+    | |     "device_type" = <"cpu">
+    | |     "logical-cpu-id" = 5
+    | |     "reg" = <01010000>
+    | |   }
+    | |   
+    | +-o cpu6@102  <class IOPlatformDevice, id 0x1000002f8, registered, matched, active, busy 0 (8 ms), retain 8>
+    | |   {
+    | |     "cluster-type" = <"P">
+    | |     "cpu-id" = <06000000>
+    | |     "logical-cluster-id" = 1
+    | |     "name" = <"cpu6">
+    | |     "state" = <"waiting">
+    | |     "device_type" = <"cpu">
+    | |     "logical-cpu-id" = 6
+    | |     "reg" = <02010000>
+    | |   }
+    | |   
+    | +-o cpu7@103  <class IOPlatformDevice, id 0x1000002f9, registered, matched, active, busy 0 (10 ms), retain 8>
+    | |   {
+    | |     "cluster-type" = <"P">
+    | |     "cpu-id" = <07000000>
+    | |     "logical-cluster-id" = 1
+    | |     "name" = <"cpu7">
+    | |     "state" = <"waiting">
+    | |     "device_type" = <"cpu">
+    | |     "logical-cpu-id" = 7
+    | |     "reg" = <03010000>
+    | |   }
+    | |   
+    | +-o cpu8@104  <class IOPlatformDevice, id 0x1000002fa, registered, matched, active, busy 0 (10 ms), retain 8>
+    | |   {
+    | |     "cluster-type" = <"P">
+    | |     "cpu-id" = <08000000>
+    | |     "logical-cluster-id" = 1
+    | |     "name" = <"cpu8">
+    | |     "state" = <"waiting">
+    | |     "device_type" = <"cpu">
+    | |     "logical-cpu-id" = 8
+    | |     "reg" = <04010000>
+    | |   }
+    | |   
+    | +-o cpu10@200  <class IOPlatformDevice, id 0x1000002fb, registered, matched, active, busy 0 (9 ms), retain 8>
+    | |   {
+    | |     "cluster-type" = <"P">
+    | |     "cpu-id" = <0a000000>
+    | |     "logical-cluster-id" = 2
+    | |     "name" = <"cpu10">
+    | |     "state" = <"waiting">
+    | |     "device_type" = <"cpu">
+    | |     "logical-cpu-id" = 9
+    | |     "reg" = <00020000>
+    | |   }
+    | |   
+    | +-o cpu11@201  <class IOPlatformDevice, id 0x1000002fc, registered, matched, active, busy 0 (9 ms), retain 8>
+    | |   {
+    | |     "cluster-type" = <"P">
+    | |     "cpu-id" = <0b000000>
+    | |     "logical-cluster-id" = 2
+    | |     "name" = <"cpu11">
+    | |     "state" = <"waiting">
+    | |     "device_type" = <"cpu">
+    | |     "logical-cpu-id" = 10
+    | |     "reg" = <01020000>
+    | |   }
+    | |   
+    | +-o cpu12@202  <class IOPlatformDevice, id 0x1000002fd, registered, matched, active, busy 0 (9 ms), retain 8>
+    | |   {
+    | |     "cluster-type" = <"P">
+    | |     "cpu-id" = <0c000000>
+    | |     "logical-cluster-id" = 2
+    | |     "name" = <"cpu12">
+    | |     "state" = <"waiting">
+    | |     "device_type" = <"cpu">
+    | |     "logical-cpu-id" = 11
+    | |     "reg" = <02020000>
+    | |   }
+    | |   
+    | +-o cpu13@203  <class IOPlatformDevice, id 0x1000002fe, registered, matched, active, busy 0 (8 ms), retain 8>
+    | |   {
+    | |     "cluster-type" = <"P">
+    | |     "cpu-id" = <0d000000>
+    | |     "logical-cluster-id" = 2
+    | |     "name" = <"cpu13">
+    | |     "state" = <"waiting">
+    | |     "device_type" = <"cpu">
+    | |     "logical-cpu-id" = 12
+    | |     "reg" = <03020000>
+    | |   }
+    | |   
+    | +-o cpu14@204  <class IOPlatformDevice, id 0x1000002ff, registered, matched, active, busy 0 (8 ms), retain 8>
+    |     {
+    |       "cluster-type" = <"P">
+    |       "cpu-id" = <0e000000>
+    |       "logical-cluster-id" = 2
+    |       "name" = <"cpu14">
+    |       "state" = <"waiting">
+    |       "device_type" = <"cpu">
+    |       "logical-cpu-id" = 13
+    |       "reg" = <04020000>
+    |     }
+    |     
+    +-o pram@E6358000  <class IOPlatformDevice, id 0x100000301, registered, matched, active, busy 0 (57 ms), retain 6>
+    |   {
+    |     "IODeviceMemory" = (({"address"=1150618533888,"length"=1605632}))
+    |     "reg" = <008035e60b0100000080180000000000>
+    |     "name" = <"pram">
+    |     "AAPL,phandle" = <28000000>
+    |     "device_type" = <"pram">
+    |   }
+    |

@@ -1,0 +1,127 @@
+{
+  "manifestVersion": 2,
+  "id": "os-vitals",
+  "name": "OS Vitals",
+  "version": "1.0.0",
+  "description": "A system monitor in the right sidebar and the status bar: live CPU, memory, network, disk, GPU, battery and processes.",
+  "author": {
+    "name": "pblobp"
+  },
+  "license": "MIT",
+  "repository": "https://github.com/pblobp/orca-plugins",
+  "execution": "trusted-worker",
+  "pluginApi": 1,
+  "engines": {
+    "orca": ">=1.4.248"
+  },
+  "main": "src/worker.ts",
+  "contributes": {
+    "panels": [
+      {
+        "id": "os-vitals",
+        "title": "OS Vitals",
+        "icon": "activity",
+        "entry": "panel/index.html"
+      }
+    ],
+    "statusBarItems": [
+      {
+        "id": "os-vitals",
+        "icon": "activity",
+        "text": "OS Vitals",
+        "command": "os-vitals.open"
+      }
+    ],
+    "commands": [
+      {
+        "id": "os-vitals.open",
+        "title": "OS Vitals: Open panel"
+      }
+    ],
+    "settings": [
+      {
+        "key": "refreshSeconds",
+        "title": "Refresh interval",
+        "description": "How often the panel updates while it is open.",
+        "type": "integer",
+        "default": 2,
+        "enum": [1, 2, 5],
+        "enumLabels": ["1 second", "2 seconds", "5 seconds"]
+      },
+      {
+        "key": "historyMinutes",
+        "title": "History length",
+        "description": "How far back the charts reach. History is kept in memory and starts over when Orca restarts.",
+        "type": "integer",
+        "default": 5,
+        "enum": [1, 5, 15],
+        "enumLabels": ["1 minute", "5 minutes", "15 minutes"]
+      },
+      {
+        "key": "statusBar",
+        "title": "Status bar",
+        "description": "What the status bar item shows.",
+        "type": "string",
+        "default": "cpu-memory",
+        "enum": ["cpu-memory", "cpu", "memory", "hidden"],
+        "enumLabels": ["CPU and memory", "CPU", "Memory", "Hidden"]
+      },
+      {
+        "key": "backgroundSampling",
+        "title": "Sample while the panel is closed",
+        "description": "Keeps the status bar and alerts current every 5 seconds. Off, OS Vitals reads the system only while its panel is open.",
+        "type": "boolean",
+        "default": true
+      },
+      {
+        "key": "memoryAlert",
+        "title": "Memory alert",
+        "description": "A desktop notification when memory stays at or above the limit for 30 seconds, then silence for 10 minutes.",
+        "type": "boolean",
+        "default": true
+      },
+      {
+        "key": "memoryAlertPercent",
+        "title": "Memory alert limit (%)",
+        "description": "Used memory, as a percentage of the total, that starts the memory alert.",
+        "type": "integer",
+        "default": 92,
+        "minimum": 70,
+        "maximum": 99
+      },
+      {
+        "key": "cpuAlert",
+        "title": "CPU alert",
+        "description": "Colors the status bar item when CPU stays above the limit for 60 seconds. It sends no notification.",
+        "type": "boolean",
+        "default": false
+      },
+      {
+        "key": "cpuAlertPercent",
+        "title": "CPU alert limit (%)",
+        "description": "Total CPU usage that starts the CPU alert.",
+        "type": "integer",
+        "default": 90,
+        "minimum": 50,
+        "maximum": 100
+      },
+      {
+        "key": "defaultView",
+        "title": "Open on",
+        "description": "The view the panel shows when it opens.",
+        "type": "string",
+        "default": "last",
+        "enum": ["last", "overview", "processes"],
+        "enumLabels": ["Last used", "Overview", "Processes"]
+      }
+    ]
+  },
+  "capabilities": [
+    {
+      "kind": "settings:own"
+    },
+    {
+      "kind": "notifications:show"
+    }
+  ]
+}
