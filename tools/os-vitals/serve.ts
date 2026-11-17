@@ -61,9 +61,10 @@ const server = createServer(async (request, response) => {
     response.writeHead(200, { 'content-type': type, 'cache-control': 'no-store' })
     response.end(request.method === 'HEAD' ? undefined : body)
   } catch (error) {
-    const code = (error as { code?: string }).code
-    response.writeHead(code === 'ENOENT' ? 404 : 500, { 'content-type': 'text/plain' })
-    response.end(code === 'ENOENT' ? 'not found' : String(error))
+    const missing = (error as { code?: string }).code === 'ENOENT'
+    if (!missing) console.error(error)
+    response.writeHead(missing ? 404 : 500, { 'content-type': 'text/plain' })
+    response.end(missing ? 'not found' : 'the harness server could not serve that file')
   }
 })
 
