@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security problem
+    url: https://github.com/pblobp/orca-plugins/security/advisories/new
+    about: Report it privately. Never open a public issue for a security problem.
+  - name: Bug in Orca itself
+    url: https://github.com/stablyai/orca/issues
+    about: Problems with the Orca app, not with a plugin from this repository.

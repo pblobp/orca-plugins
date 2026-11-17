@@ -1,0 +1,6 @@
+node_modules/
+.orca/
+package-lock.json
+CODE_OF_CONDUCT.md
+tests/**/fixtures/
+tests/scripts/corpus/

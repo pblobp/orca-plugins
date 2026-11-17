@@ -1,0 +1,26 @@
+{
+  "name": "orca-plugins",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Plugins for the Orca desktop app, and the checks that guard them.",
+  "license": "MIT",
+  "repository": "github:pblobp/orca-plugins",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check:policy": "node scripts/check-policy.mjs",
+    "check:catalog": "node scripts/check-catalog.mjs",
+    "check:versions": "node scripts/check-versions.mjs",
+    "test:scripts": "node --test \"tests/scripts/**/*.test.mjs\"",
+    "check": "npm run format:check && npm run check:policy && npm run check:catalog && npm run check:versions && npm run test:scripts"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "prettier": "3.10.1",
+    "typescript": "6.0.3"
+  }
+}

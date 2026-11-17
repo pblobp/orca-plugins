@@ -1,0 +1,56 @@
+name: New plugin proposal
+description: Propose a new plugin for this repository. Open this before you write the code.
+labels: [plugin-proposal, triage]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Every plugin here runs on users' machines and updates itself, so each one is held to the
+        rules in docs/plugin-standards.md. Agree on the proposal here before you open a pull
+        request.
+  - type: input
+    id: name
+    attributes:
+      label: Plugin name and id
+      description: The id is lowercase letters, digits and dashes, and must not start with "orca-".
+      placeholder: Disk Usage (disk-usage)
+    validations:
+      required: true
+  - type: textarea
+    id: purpose
+    attributes:
+      label: What it does
+      description: What it adds to Orca, and who it is for.
+    validations:
+      required: true
+  - type: textarea
+    id: access
+    attributes:
+      label: Access it needs
+      description: >-
+        The execution level (data, declarative, sandboxed-ui or trusted-worker), the capabilities,
+        the Node modules and the programs it would run, and any network hosts, each with the reason.
+    validations:
+      required: true
+  - type: checkboxes
+    id: platforms
+    attributes:
+      label: Platforms
+      options:
+        - label: macOS
+        - label: Linux
+        - label: Windows
+  - type: textarea
+    id: prior-art
+    attributes:
+      label: Similar plugins
+      description: Plugins in the Orca directory that already do something like this, and how this one differs.
+  - type: checkboxes
+    id: commitments
+    attributes:
+      label: Commitments
+      options:
+        - label: The plugin collects no telemetry or personal data.
+          required: true
+        - label: I will contribute it under the MIT license.
+          required: true

@@ -1,0 +1,35 @@
+name: Feature request
+description: Ask for a new feature or a change in one of these plugins.
+labels: [enhancement, triage]
+body:
+  - type: input
+    id: plugin
+    attributes:
+      label: Plugin
+      placeholder: OS Vitals
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you propose
+    validations:
+      required: true
+  - type: textarea
+    id: access
+    attributes:
+      label: Access it would need
+      description: >-
+        Would the change need new capabilities, programs, network access or a higher execution
+        level? Say so if you know. Requests that widen access get a closer look.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered

@@ -1,0 +1,41 @@
+name: Set up the Orca CLI
+description: >-
+  Downloads the Orca release pinned in .orca-version, checks its sha512, unpacks it and puts the
+  orca command on PATH. Nothing is installed or started.
+runs:
+  using: composite
+  steps:
+    - name: Download, verify and unpack the pinned Orca package
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ "$RUNNER_OS" != Linux ] || [ "$RUNNER_ARCH" != X64 ]; then
+          echo "::error::setup-orca runs on Linux x64 only"
+          exit 1
+        fi
+        version="$(sed -n 's/^ORCA_VERSION=//p' .orca-version)"
+        expected="$(sed -n 's/^ORCA_DEB_SHA512=//p' .orca-version)"
+        if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "::error::.orca-version has no valid ORCA_VERSION"
+          exit 1
+        fi
+        if ! [[ "$expected" =~ ^[A-Za-z0-9+/]{86}==$ ]]; then
+          echo "::error::.orca-version has no valid ORCA_DEB_SHA512"
+          exit 1
+        fi
+        deb="$RUNNER_TEMP/orca-ide.deb"
+        curl -fsSL --retry 3 --proto '=https' --tlsv1.2 -o "$deb" \
+          "https://github.com/stablyai/orca/releases/download/v${version}/orca-ide_${version}_amd64.deb"
+        actual="$(openssl dgst -sha512 -binary "$deb" | base64 -w0)"
+        if [ "$actual" != "$expected" ]; then
+          echo "::error::orca-ide_${version}_amd64.deb does not match ORCA_DEB_SHA512"
+          exit 1
+        fi
+        dpkg-deb -x "$deb" "$RUNNER_TEMP/orca"
+        rm -f "$deb"
+        mkdir -p "$RUNNER_TEMP/orca-bin"
+        ln -s "$RUNNER_TEMP/orca/opt/Orca/resources/bin/orca-ide" "$RUNNER_TEMP/orca-bin/orca"
+        echo "$RUNNER_TEMP/orca-bin" >> "$GITHUB_PATH"
+    - name: Show the Orca version
+      shell: bash
+      run: orca --version

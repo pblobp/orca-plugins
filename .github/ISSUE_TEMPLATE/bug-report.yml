@@ -1,0 +1,69 @@
+name: Bug report
+description: Something in one of these plugins does not work.
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Use this form for bugs in a plugin from this repository. Report bugs in the Orca app itself
+        at https://github.com/stablyai/orca/issues. Never report a security problem here: use the
+        private form at https://github.com/pblobp/orca-plugins/security/advisories/new.
+  - type: input
+    id: plugin
+    attributes:
+      label: Plugin
+      description: The plugin's name or id, as shown in Settings, Plugins.
+      placeholder: OS Vitals
+    validations:
+      required: true
+  - type: input
+    id: plugin-version
+    attributes:
+      label: Plugin version
+      placeholder: 1.0.0
+    validations:
+      required: true
+  - type: input
+    id: orca-version
+    attributes:
+      label: Orca version
+      description: The output of `orca --version`, or Orca's About window.
+      placeholder: 1.4.261
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system and version
+      placeholder: macOS 26.1 on Apple silicon
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the panel.
+        2. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: >-
+        The output of `orca plugin logs <plugin key>`, such as `orca plugin logs pblobp.os-vitals`.
+        Remove anything private, such as user names, host names and paths, before you paste it.
+      render: text

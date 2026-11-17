@@ -1,0 +1,274 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  changes:
+    name: changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      plugins: ${{ steps.list.outputs.plugins }}
+      any: ${{ steps.list.outputs.any }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: List the plugins to check
+        id: list
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = pull_request ]; then
+            node scripts/list-plugins.mjs --base "$BASE" | tee -a "$GITHUB_OUTPUT"
+          else
+            node scripts/list-plugins.mjs | tee -a "$GITHUB_OUTPUT"
+          fi
+
+  validate:
+    name: validate (${{ matrix.plugin }})
+    needs: changes
+    if: ${{ needs.changes.outputs.any == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        plugin: ${{ fromJSON(needs.changes.outputs.plugins) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - uses: ./.github/actions/setup-orca
+      - name: Validate, check and test the plugin
+        env:
+          PLUGIN: ${{ matrix.plugin }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$PLUGIN" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+            echo "::error::not a plugin id: $PLUGIN"
+            exit 1
+          fi
+          dir="plugins/$PLUGIN"
+          orca plugin validate "$dir" --json
+          orca plugin check "$dir" --json
+          if [ -n "$(find "$dir" \( -name '*.test.ts' -o -name '*.test.tsx' \) -print -quit)" ]; then
+            orca plugin test "$dir" --json
+          else
+            echo "$dir has no *.test.ts(x) files, so orca plugin test is skipped."
+          fi
+
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Install the dev tools
+        run: npm ci --ignore-scripts
+      - name: List every plugin
+        id: all
+        run: node scripts/list-plugins.mjs | tee -a "$GITHUB_OUTPUT"
+      - if: ${{ steps.all.outputs.any == 'true' }}
+        uses: ./.github/actions/setup-orca
+      - name: Write the Orca typings
+        if: ${{ steps.all.outputs.any == 'true' }}
+        run: |
+          set -euo pipefail
+          for dir in plugins/*/; do
+            [ -f "${dir}orca-plugin.json" ] || continue
+            orca plugin types "$dir"
+          done
+      - name: Type-check every TypeScript project
+        run: |
+          set -euo pipefail
+          found=0
+          for config in plugins/*/tsconfig.json tests/*/tsconfig.json tools/*/tsconfig.json; do
+            [ -f "$config" ] || continue
+            found=1
+            echo "tsc -p $config"
+            ./node_modules/.bin/tsc -p "$config"
+          done
+          if [ "$found" = 0 ]; then echo "No TypeScript projects yet."; fi
+
+  policy:
+    name: policy
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Install the dev tools
+        run: npm ci --ignore-scripts
+      - uses: ./.github/actions/setup-orca
+      - name: Find the base commit
+        id: base
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          base=""
+          if [ "$EVENT" = pull_request ]; then
+            base="$PR_BASE"
+          elif [ "$EVENT" = push ] && [[ "$BEFORE" =~ ^[0-9a-f]{40}$ ]] \
+            && [ "$BEFORE" != 0000000000000000000000000000000000000000 ] \
+            && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            base="$BEFORE"
+          fi
+          if [ -n "$base" ] && ! [[ "$base" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::the base is not a commit SHA"
+            exit 1
+          fi
+          echo "sha=$base" | tee -a "$GITHUB_OUTPUT"
+      - name: Plugin policy
+        env:
+          BASE: ${{ steps.base.outputs.sha }}
+        run: |
+          if [ -n "$BASE" ]; then
+            node scripts/check-policy.mjs --base "$BASE"
+          else
+            node scripts/check-policy.mjs
+          fi
+      - name: Catalog
+        env:
+          BASE: ${{ steps.base.outputs.sha }}
+        run: |
+          if [ -n "$BASE" ]; then
+            node scripts/check-catalog.mjs --with-orca --base "$BASE"
+          else
+            node scripts/check-catalog.mjs --with-orca
+          fi
+      - name: Versions
+        run: node scripts/check-versions.mjs
+      - name: Formatting
+        run: ./node_modules/.bin/prettier --check .
+      - name: Tests of the scripts
+        run: node --test 'tests/scripts/**/*.test.mjs'
+
+  smoke:
+    name: smoke (${{ matrix.plugin }}, ${{ matrix.os }})
+    needs: changes
+    if: ${{ needs.changes.outputs.any == 'true' }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+        plugin: ${{ fromJSON(needs.changes.outputs.plugins) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+      - name: Unit tests
+        shell: bash
+        env:
+          PLUGIN: ${{ matrix.plugin }}
+        run: |
+          set -euo pipefail
+          if ! [[ "$PLUGIN" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+            echo "::error::not a plugin id: $PLUGIN"
+            exit 1
+          fi
+          if [ -d "tests/$PLUGIN" ]; then
+            node --test "tests/$PLUGIN/**/*.test.ts"
+          else
+            echo "No unit tests in tests/$PLUGIN."
+          fi
+      - name: Smoke test
+        shell: bash
+        env:
+          PLUGIN: ${{ matrix.plugin }}
+        run: |
+          set -euo pipefail
+          smoke="tools/$PLUGIN/smoke.ts"
+          if [ ! -f "$smoke" ]; then
+            echo "No smoke test at $smoke."
+            exit 0
+          fi
+          if [ "$RUNNER_OS" != Linux ]; then
+            node "$smoke"
+            exit 0
+          fi
+          if ! command -v strace >/dev/null 2>&1; then
+            echo "::error::strace is not available, so network use cannot be checked"
+            exit 1
+          fi
+          log="$RUNNER_TEMP/smoke-network.log"
+          strace -f -qq -e trace=connect,sendto,sendmsg -o "$log" node "$smoke"
+          if grep -E 'sa_family=AF_INET6?' "$log" \
+            | grep -vE 'inet_addr\("127\.|inet_pton\(AF_INET6, "(::1|::ffff:127\.)'; then
+            echo "::error::the smoke test opened a network connection"
+            exit 1
+          fi
+
+  ci-ok:
+    name: ci-ok
+    if: ${{ always() }}
+    needs: [changes, validate, typecheck, policy, smoke]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - env:
+          CHANGES: ${{ needs.changes.result }}
+          TYPECHECK: ${{ needs.typecheck.result }}
+          POLICY: ${{ needs.policy.result }}
+          VALIDATE: ${{ needs.validate.result }}
+          SMOKE: ${{ needs.smoke.result }}
+          ANY: ${{ needs.changes.outputs.any }}
+        run: |
+          set -eu
+          for r in "$CHANGES" "$TYPECHECK" "$POLICY"; do [ "$r" = success ] || { echo "required: $r"; exit 1; }; done
+          for r in "$VALIDATE" "$SMOKE"; do
+            if [ "$ANY" = true ]; then [ "$r" = success ] || exit 1; else [ "$r" = success ] || [ "$r" = skipped ] || exit 1; fi
+          done
