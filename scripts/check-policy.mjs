@@ -194,7 +194,31 @@ const EXCEPTION_KEYS = ['file', 'function', 'reason']
 const ABSOLUTE_PROGRAM = /^\/(?:[A-Za-z0-9._+-]+\/)*[A-Za-z0-9._+-]+$/
 const HOST = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/
 const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/
-const CODE_URL = /^\s*(?:javascript|vbscript|data):/i
+const CODE_SCHEMES = new Set(['javascript', 'vbscript', 'data'])
+const DATA_URL_BODY = /^(?:[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+)?(?:;[^,\s;]*)*,/i
+const URL_SCHEME = /^([A-Za-z][A-Za-z0-9+.-]*):/
+const HTML_SPACE = new Set(['\t', '\n', '\f', '\r', ' '])
+const URL_ATTRIBUTES = new Set([
+  'href',
+  'src',
+  'action',
+  'formaction',
+  'xlink:href',
+  'data',
+  'poster',
+  'background',
+  'cite'
+])
+const SCRIPT_SOURCES = ['src', 'href', 'xlink:href']
+const NAMED_REFERENCES = {
+  colon: ':',
+  Tab: '\t',
+  NewLine: '\n',
+  sol: '/',
+  bsol: '\\',
+  period: '.',
+  percnt: '%'
+}
 const ACCESS_FIELDS = [
   ['execution', (m) => m.execution],
   ['main', (m) => m.main],
@@ -312,6 +336,125 @@ export function validatePolicy(raw, file, problems) {
     problems.push(`${file}: ${network.join(', ')} need the hosts the plugin connects to in "hosts"`)
   }
   return policy
+}
+
+function decodeReferences(value) {
+  return value.replace(
+    /&(?:#(?:[xX]([0-9A-Fa-f]{1,8})|([0-9]{1,8}));?|([A-Za-z]{2,10});)/g,
+    (whole, hex, decimal, name) => {
+      if (name !== undefined) return NAMED_REFERENCES[name] ?? whole
+      const code = hex !== undefined ? parseInt(hex, 16) : Number(decimal)
+      return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : '�'
+    }
+  )
+}
+
+export function cleanUrl(value, decode) {
+  const text = decode ? decodeReferences(value) : value
+  let out = ''
+  for (const char of text) {
+    if (char !== '\t' && char !== '\n' && char !== '\r') out += char === '\\' ? '/' : char
+  }
+  let start = 0
+  let end = out.length
+  while (start < end && out.charCodeAt(start) <= 0x20) start++
+  while (end > start && out.charCodeAt(end - 1) <= 0x20) end--
+  return out.slice(start, end)
+}
+
+export function codeScheme(url, { strictData }) {
+  const match = URL_SCHEME.exec(url)
+  const scheme = match ? match[1].toLowerCase() : ''
+  if (!CODE_SCHEMES.has(scheme)) return null
+  if (scheme === 'data' && !strictData && !DATA_URL_BODY.test(url.slice(5))) return null
+  return scheme
+}
+
+function isAsciiLetter(code) {
+  return (code >= 65 && code <= 90) || (code >= 97 && code <= 122)
+}
+
+function matchesInsensitive(text, at, word) {
+  if (at + word.length > text.length) return false
+  for (let i = 0; i < word.length; i++) {
+    let code = text.charCodeAt(at + i)
+    if (code >= 65 && code <= 90) code += 32
+    if (code !== word.charCodeAt(i)) return false
+  }
+  return true
+}
+
+function readTag(text, nameStart) {
+  let i = nameStart
+  while (i < text.length && !HTML_SPACE.has(text[i]) && text[i] !== '/' && text[i] !== '>') i++
+  const name = text.slice(nameStart, i).toLowerCase()
+  const attributes = []
+  while (i < text.length) {
+    const char = text[i]
+    if (HTML_SPACE.has(char) || char === '/') {
+      i++
+      continue
+    }
+    if (char === '>') return { name, attributes, end: i + 1, closed: true }
+    const attributeStart = i
+    if (char === '=') i++
+    while (
+      i < text.length &&
+      !HTML_SPACE.has(text[i]) &&
+      text[i] !== '/' &&
+      text[i] !== '>' &&
+      text[i] !== '='
+    ) {
+      i++
+    }
+    const attribute = { name: text.slice(attributeStart, i).toLowerCase(), value: '' }
+    let j = i
+    while (j < text.length && HTML_SPACE.has(text[j])) j++
+    if (text[j] === '=') {
+      j++
+      while (j < text.length && HTML_SPACE.has(text[j])) j++
+      const quote = text[j]
+      if (quote === '"' || quote === "'") {
+        const close = text.indexOf(quote, j + 1)
+        if (close === -1) return { name, attributes, end: text.length, closed: false }
+        attribute.value = text.slice(j + 1, close)
+        i = close + 1
+      } else {
+        let k = j
+        while (k < text.length && !HTML_SPACE.has(text[k]) && text[k] !== '>') k++
+        attribute.value = text.slice(j, k)
+        i = k
+      }
+    } else {
+      i = j
+    }
+    attributes.push(attribute)
+  }
+  return { name, attributes, end: text.length, closed: false }
+}
+
+function findScriptEnd(text, from) {
+  let i = from
+  while ((i = text.indexOf('<', i)) !== -1) {
+    if (text[i + 1] === '/' && matchesInsensitive(text, i + 2, 'script')) {
+      const after = text[i + 8]
+      if (after !== undefined && (HTML_SPACE.has(after) || after === '/' || after === '>')) {
+        const tag = readTag(text, i + 2)
+        return { contentEnd: i, end: tag.end, closed: tag.closed }
+      }
+    }
+    i++
+  }
+  return { contentEnd: text.length, end: text.length, closed: false }
+}
+
+function scriptLeavesPlugin(value, file) {
+  const url = cleanUrl(value, true).replace(/%2e/gi, '.')
+  if (url === '') return false
+  if (URL_SCHEME.test(url) || url.startsWith('/')) return true
+  const path = url.split('?')[0].split('#')[0]
+  const target = posix.normalize(posix.join(posix.dirname(file), path))
+  return target === '..' || target.startsWith('../')
 }
 
 function isTypeOnlyImport(node) {
@@ -880,8 +1023,8 @@ export function checkSource(text, options) {
 
     if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
       if (FORBIDDEN_STRINGS.has(node.text)) add(node, `the string "${node.text}" is not allowed`)
-      if (CODE_URL.test(node.text))
-        add(node, 'javascript:, vbscript: and data: URLs can carry code')
+      const scheme = codeScheme(cleanUrl(node.text, false), { strictData: false })
+      if (scheme) add(node, `${scheme}: URLs can carry code`)
     }
 
     const isTopConcat =
@@ -908,7 +1051,7 @@ export function checkSource(text, options) {
           CODE_GLOBALS.has(value) ||
           value === 'require' ||
           (!hosts && NETWORK_GLOBALS.has(value)) ||
-          CODE_URL.test(value))
+          codeScheme(cleanUrl(value, false), { strictData: false }))
       ) {
         add(node, `"${value}" is assembled from pieces, which hides it`)
       }
@@ -940,49 +1083,56 @@ export function checkHtml(text, options) {
   const problems = []
   const used = new Set()
   const found = new Set()
-  const script = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi
-  let match
-  let closed = 0
-  while ((match = script.exec(text)) !== null) {
-    closed++
-    const line = lineAt(text, match.index)
-    const src = /\bsrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(match[1])
-    if (src) {
-      const url = src[1] ?? src[2] ?? src[3]
-      const target = posix.normalize(posix.join(posix.dirname(file), url))
-      if (/^[a-z][a-z0-9+.-]*:/i.test(url) || url.startsWith('/') || target.startsWith('../')) {
-        problems.push({ line, message: `script ${url} is not a file inside the plugin` })
-      }
+  const unclosed = (line) => problems.push({ line, message: 'a <script> element is not closed' })
+  let i = 0
+  while ((i = text.indexOf('<', i)) !== -1) {
+    if (!isAsciiLetter(text.charCodeAt(i + 1))) {
+      i++
       continue
     }
-    if (match[2].trim() === '') continue
-    const bodyStart = match.index + match[0].indexOf('>') + 1
-    const inner = checkSource(match[2], {
-      file,
-      kind: ts.ScriptKind.JS,
-      policy: options.policy,
-      lineOffset: lineAt(text, bodyStart) - 1
-    })
-    problems.push(...inner.problems)
-    for (const key of inner.used) used.add(key)
-    for (const key of inner.found) found.add(key)
-  }
-  const opened = (text.match(/<script\b/gi) ?? []).length
-  if (opened !== closed) problems.push({ line: 1, message: 'a <script> element is not closed' })
-  const tag = /<[a-zA-Z][^>]*>/g
-  while ((match = tag.exec(text)) !== null) {
-    const line = lineAt(text, match.index)
-    const handler = /\s(on[a-z]+|srcdoc)\s*=/i.exec(match[0])
-    if (handler) {
-      problems.push({ line, message: `the ${handler[1]} attribute runs or embeds code` })
+    const line = lineAt(text, i)
+    const tag = readTag(text, i + 1)
+    for (const { name, value } of tag.attributes) {
+      if ((name.length > 2 && name.startsWith('on')) || name === 'srcdoc') {
+        problems.push({ line, message: `the ${name} attribute runs or embeds code` })
+      }
+      if (URL_ATTRIBUTES.has(name)) {
+        const scheme = codeScheme(cleanUrl(value, true), { strictData: true })
+        if (scheme) problems.push({ line, message: `${scheme}: URLs can carry code` })
+      }
     }
-    if (
-      /\s(?:href|src|action|formaction|xlink:href)\s*=\s*(?:["']\s*)?(?:javascript|vbscript):/i.test(
-        match[0]
-      )
-    ) {
-      problems.push({ line, message: 'javascript: and vbscript: URLs run code' })
+    if (tag.name !== 'script') {
+      i = tag.end
+      continue
     }
+    if (!tag.closed) {
+      unclosed(line)
+      break
+    }
+    const source = SCRIPT_SOURCES.map((name) => tag.attributes.find((a) => a.name === name)).find(
+      Boolean
+    )
+    if (source && scriptLeavesPlugin(source.value, file)) {
+      problems.push({ line, message: `script ${source.value} is not a file inside the plugin` })
+    }
+    const close = findScriptEnd(text, tag.end)
+    if (!close.closed) unclosed(line)
+    const content = text.slice(tag.end, close.contentEnd)
+    if (content.includes('<!--')) {
+      problems.push({ line, message: '"<!--" inside a script element changes where it ends' })
+    }
+    if (content.trim() !== '') {
+      const inner = checkSource(content, {
+        file,
+        kind: ts.ScriptKind.JS,
+        policy: options.policy,
+        lineOffset: lineAt(text, tag.end) - 1
+      })
+      problems.push(...inner.problems)
+      for (const key of inner.used) used.add(key)
+      for (const key of inner.found) found.add(key)
+    }
+    i = close.end
   }
   return { problems, used, found }
 }
