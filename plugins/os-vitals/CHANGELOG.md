@@ -16,6 +16,9 @@ All notable changes to OS Vitals are recorded here. The format follows
   and cached files, with memory pressure and swap. Windows shows used and free memory.
 - The five processes using the most CPU on the Overview, and on macOS a Processes view that
   filters, sorts and pages every process, with a details pane for the selected one.
+- Quitting a process on macOS from the details pane, behind a confirmation, with Force quit after
+  5 seconds. The worker refuses PID 1, other users' processes, a reused PID, Orca itself and the
+  protected set listed in the README.
 - A status bar item with the current CPU and memory usage, updated at most every 5 seconds and only
   when a number changes. Pressing it opens the panel.
 - Settings for the refresh interval, the history length, the status bar item, background sampling,
@@ -35,3 +38,5 @@ All notable changes to OS Vitals are recorded here. The format follows
 - On macOS, runs `/usr/bin/vm_stat` and `/usr/sbin/sysctl` for memory, `/bin/ps` for processes
   while the panel shows them, and `/usr/sbin/ioreg` once to tell performance cores from efficiency
   cores.
+- Sends `SIGTERM`, or `SIGKILL` when you force it, to a process you confirm in the panel, as your
+  user, after the checks the README describes. This needs no new capability.

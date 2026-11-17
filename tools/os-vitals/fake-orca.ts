@@ -1,4 +1,5 @@
-import { queryProcesses, readQuery } from '../../plugins/os-vitals/src/processes.ts'
+import { queryProcesses, readQuery, withOffers } from '../../plugins/os-vitals/src/processes.ts'
+import { createOfferer, readQuitInput } from '../../plugins/os-vitals/src/quit.ts'
 import type {
   CoreInfo,
   DetailResult,
@@ -8,6 +9,7 @@ import type {
   PollInput,
   PollResult,
   ProcessRow,
+  QuitResult,
   Sample,
   Sections
 } from '../../plugins/os-vitals/src/protocol.ts'
@@ -159,81 +161,156 @@ function memoryReading(): MemoryReading {
   }
 }
 
+const SYSTEM = '/System/Library/CoreServices'
+const ORCA_APP = '/Applications/Orca.app/Contents'
+
 const NAMES = [
-  ['qemu-system-aarch64', 115.6, 9.18 * GB],
-  ['WindowServer', 20.8, 1.02 * GB],
-  ['coreaudiod', 10.4, 34 * MB],
-  ['qemu-system-aarch64', 9.1, 9.65 * GB],
-  ['Orca Helper (Renderer)', 6.2, 553 * MB],
-  ['node', 5.4, 412 * MB],
-  ['Example Browser Helper (Renderer)', 3.1, 388 * MB],
-  ['Orca', 2.8, 301 * MB],
-  ['agent', 2.4, 624 * MB],
-  ['container-backend', 1.9, 212 * MB],
-  ['postgres', 1.2, 96 * MB],
-  ['mds_stores', 0.9, 148 * MB],
-  ['Simulator', 0.8, 276 * MB],
-  ['tsc', 0.6, 512 * MB],
-  ['Orca Helper (GPU)', 0.5, 164 * MB],
-  ['Finder', 0.4, 187 * MB],
-  ['watchman', 0.2, 71 * MB],
-  ['zsh', 0.1, 6 * MB],
-  ['launchd', 0.1, 22 * MB],
-  ['cfprefsd', 0, 9 * MB],
-  ['ssh-agent', 0, 4 * MB],
-  ['Dock', 0.3, 64 * MB],
-  ['loginwindow', 0.2, 80 * MB],
-  ['vite', 1.4, 210 * MB]
+  ['qemu-system-aarch64', 115.6, 9.18 * GB, '/opt/homebrew/bin/qemu-system-aarch64'],
+  [
+    'WindowServer',
+    20.8,
+    1.02 * GB,
+    '/System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer'
+  ],
+  ['coreaudiod', 10.4, 34 * MB, '/usr/sbin/coreaudiod'],
+  ['qemu-system-aarch64', 9.1, 9.65 * GB, '/opt/homebrew/bin/qemu-system-aarch64'],
+  [
+    'Orca Helper (Renderer)',
+    6.2,
+    553 * MB,
+    `${ORCA_APP}/Frameworks/Orca Helper (Renderer).app/Contents/MacOS/Orca Helper (Renderer)`
+  ],
+  ['node', 5.4, 412 * MB, '/Users/user/.nvm/versions/node/v24.22.1/bin/node'],
+  [
+    'Example Browser Helper (Renderer)',
+    3.1,
+    388 * MB,
+    '/Applications/Example Browser.app/Contents/MacOS/Example Browser Helper (Renderer)'
+  ],
+  ['Orca', 2.8, 301 * MB, `${ORCA_APP}/MacOS/Orca`],
+  ['agent', 2.4, 624 * MB, '/Users/user/.local/bin/agent'],
+  ['container-backend', 1.9, 212 * MB, '/usr/local/bin/container-backend'],
+  ['postgres', 1.2, 96 * MB, '/opt/homebrew/bin/postgres'],
+  ['mds_stores', 0.9, 148 * MB, '/System/Library/Frameworks/CoreServices.framework/mds_stores'],
+  ['Simulator', 0.8, 276 * MB, '/Applications/Simulator.app/Contents/MacOS/Simulator'],
+  ['tsc', 0.6, 512 * MB, '/Users/user/project/node_modules/.bin/tsc'],
+  [
+    'Orca Helper (GPU)',
+    0.5,
+    164 * MB,
+    `${ORCA_APP}/Frameworks/Orca Helper (GPU).app/Contents/MacOS/Orca Helper (GPU)`
+  ],
+  ['Finder', 0.4, 187 * MB, `${SYSTEM}/Finder.app/Contents/MacOS/Finder`],
+  ['watchman', 0.2, 71 * MB, '/opt/homebrew/bin/watchman'],
+  ['zsh', 0.1, 6 * MB, '/bin/zsh'],
+  ['launchd', 0.1, 22 * MB, '/sbin/launchd'],
+  ['cfprefsd', 0, 9 * MB, '/usr/sbin/cfprefsd'],
+  ['ssh-agent', 0, 4 * MB, '/usr/bin/ssh-agent'],
+  ['Dock', 0.3, 64 * MB, `${SYSTEM}/Dock.app/Contents/MacOS/Dock`],
+  ['loginwindow', 0.2, 80 * MB, `${SYSTEM}/loginwindow.app/Contents/MacOS/loginwindow`],
+  ['vite', 1.4, 210 * MB, '/Users/user/project/node_modules/.bin/vite']
 ] as const
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+function startToken(ms: number): string {
+  const date = new Date(Math.floor(ms / 1000) * 1000)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const time = `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  return `${DAYS[date.getDay()]} ${MONTHS[date.getMonth()]} ${date.getDate()} ${time} ${date.getFullYear()}`
+}
+
 const PROCESS_TABLE: ProcessRow[] = [
-  ...NAMES.map(([name, cpu, memory], index) => ({ name, cpu, memory, index })),
+  ...NAMES.map(([name, cpu, memory, path], index) => ({ name, cpu, memory, path, index })),
   ...Array.from({ length: 118 }, (_, index) => ({
     name: `helper-${String(index + 1).padStart(3, '0')}`,
     cpu: 0,
     memory: (2 + ((index * 37) % 60)) * MB,
+    path: `/usr/local/libexec/helper-${String(index + 1).padStart(3, '0')}`,
     index: index + NAMES.length
   }))
-].map((entry) => ({
-  pid: entry.name === 'launchd' ? 1 : 300 + entry.index * 431,
-  ppid: entry.name === 'launchd' ? 0 : 1,
-  uid: entry.name === 'WindowServer' ? 88 : 501,
-  user: entry.name === 'WindowServer' ? '_windowserver' : 'user',
-  name: entry.name,
-  cpu: entry.cpu,
-  memory: entry.memory,
-  cpuTime: 400 + entry.index * 97,
-  startedAt: Date.now() - (2 * 3600 + entry.index * 600) * 1000
-}))
+].map((entry) => {
+  const startedMs = Math.floor((Date.now() - (2 * 3600 + entry.index * 600) * 1000) / 1000) * 1000
+  const other = entry.name === 'WindowServer' ? 88 : entry.name === 'postgres' ? 70 : 501
+  return {
+    pid: entry.name === 'launchd' ? 1 : 300 + entry.index * 431,
+    ppid: entry.name === 'launchd' ? 0 : 1,
+    uid: other,
+    user: other === 88 ? '_windowserver' : other === 70 ? '_postgres' : 'user',
+    name: entry.name,
+    path: entry.path,
+    cpu: entry.cpu,
+    memory: entry.memory,
+    cpuTime: 400 + entry.index * 97,
+    startedAt: startedMs,
+    start: startToken(startedMs)
+  }
+})
+
+const ORCA_PID = PROCESS_TABLE.find((row) => row.name === 'Orca')?.pid ?? 2
+const QUIT_CONTEXT = {
+  uid: 501,
+  selfPid: 99999,
+  parentPid: ORCA_PID,
+  bundle: '/Applications/Orca.app'
+}
+const removed = new Set<number>()
+const offer = () => createOfferer(QUIT_CONTEXT, PROCESS_TABLE)
+
+function liveTable(): ProcessRow[] {
+  return PROCESS_TABLE.filter((row) => !removed.has(row.pid))
+}
 
 function processPage(input: PollInput): PollResult['processes'] {
   const query = readQuery(input.processes)
   if (!query || windows) return null
-  const rows = PROCESS_TABLE.map((row) => ({
+  const rows = liveTable().map((row) => ({
     ...row,
     cpu: row.cpu > 0 ? round1(clamp(row.cpu * (0.85 + next() * 0.3), 0, 400)) : 0,
     cpuTime: row.cpuTime + (Date.now() - startedAt) / 10000
   }))
-  return queryProcesses({ rows, t: Date.now() }, query)
+  return withOffers(queryProcesses({ rows, t: Date.now() }, query), offer())
 }
 
 function detail(input: unknown): DetailResult {
   const pid = (input as { pid?: unknown } | null)?.pid
-  const row = PROCESS_TABLE.find((entry) => entry.pid === pid)
+  const row = liveTable().find((entry) => entry.pid === pid)
   if (!row) return { found: false }
   const command =
     row.name === 'node'
       ? '/Users/user/.nvm/versions/node/v24.22.1/bin/node /Users/user/project/node_modules/.bin/vite --port 5173'
-      : `/usr/libexec/${row.name}`
+      : row.path
   return {
     found: true,
     process: {
       ...row,
+      quit: offer()(row),
       parentName: row.ppid === 1 ? 'launchd' : null,
       command,
       threads: 23
     }
   }
+}
+
+function quitAnswer(input: unknown): QuitResult {
+  const parsed = readQuitInput(input)
+  if (!parsed) throw hostError('invalid_params', 'quit takes a pid, a start time and force')
+  const row = liveTable().find((entry) => entry.pid === parsed.pid)
+  if (!row) return { ok: false, reason: 'gone' }
+  if (row.start !== parsed.startedAt) return { ok: false, reason: 'changed' }
+  const verdict = offer()(row)
+  if (verdict === 'not_owner') return { ok: false, reason: 'not_owner' }
+  if (verdict !== 'allowed') return { ok: false, reason: 'protected' }
+  if (row.name === 'tsc') return { ok: false, reason: 'changed' }
+  if (row.name === 'agent') return { ok: false, reason: 'not_permitted' }
+  if (row.name === 'watchman') return { ok: false, reason: 'gone' }
+  if (row.name === 'vite' && !parsed.force) return { ok: true }
+  window.setTimeout(drop, parsed.force ? 100 : 1000)
+  function drop(): void {
+    removed.add(parsed?.pid ?? 0)
+  }
+  return { ok: true }
 }
 
 function generateUntil(now: number): void {
@@ -346,6 +423,7 @@ async function request(name: string, input?: unknown): Promise<unknown> {
     return later(20, () => poll((input ?? {}) as PollInput))
   }
   if (name === 'os-vitals.process.detail') return later(30, () => detail(input))
+  if (name === 'os-vitals.process.quit') return later(40, () => quitAnswer(input))
   throw hostError('unknown_method', `no handler for ${name}`)
 }
 
@@ -419,7 +497,14 @@ function runActions(list: string[]): void {
   if (!action) return
   const [verb, ...rest] = action.split(':')
   const argument = rest.join(':')
-  if (verb === 'tab') findButton(argument)?.click()
+  if (verb === 'tab' || verb === 'click') findButton(argument)?.click()
+  if (verb === 'probe') {
+    const active = document.activeElement
+    const label =
+      active instanceof HTMLElement ? (active.textContent ?? '').trim().slice(0, 40) : ''
+    document.body.dataset.focus = `${active?.tagName.toLowerCase() ?? 'none'}:${label}`
+    document.body.dataset.dialog = document.querySelector('dialog')?.open ? 'open' : 'closed'
+  }
   if (verb === 'filter') {
     const input = document.querySelector<HTMLInputElement>('#vt-filter')
     if (input) {
@@ -444,7 +529,7 @@ function runActions(list: string[]): void {
     )
     cell?.click()
   }
-  window.setTimeout(continueActions, ACTION_DELAY_MS)
+  window.setTimeout(continueActions, verb === 'wait' ? Number(argument) || 0 : ACTION_DELAY_MS)
   function continueActions(): void {
     runActions(list)
   }

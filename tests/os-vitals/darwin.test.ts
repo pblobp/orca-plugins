@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import {
   darwinProvider,
   detailArgs,
+  identityArgs,
   IOREG_CPU_ARGS,
   MEMORY_KEYS,
   PROCESS_LIST_ARGS,
@@ -155,4 +156,44 @@ test('a process that is gone has no details', async () => {
     }).commands
   )
   assert.equal(await provider.processDetail(99999), null)
+})
+
+test('re-identification reads one pid with lstart, uid and comm', async () => {
+  const calls: string[][] = []
+  const provider = darwinProvider(
+    fakeOs(14),
+    fakeCommands({
+      ps: async (args) => {
+        calls.push([...args])
+        return fixture('darwin/ps-identity.txt')
+      }
+    }).commands
+  )
+  assert.deepEqual(await provider.identify(800), {
+    start: 'Tue Nov 17 10:00:00 2026',
+    uid: 501,
+    path: '/Applications/Example App.app/Contents/MacOS/Example App',
+    name: 'Example App'
+  })
+  assert.deepEqual(calls, [['-p', '800', '-o', 'lstart=', '-o', 'uid=', '-o', 'comm=']])
+  assert.deepEqual(identityArgs(800), calls[0])
+})
+
+test('ps exiting with status 1 means the process is gone; other failures are errors', async () => {
+  const failing = (error: Error) =>
+    darwinProvider(
+      fakeOs(14),
+      fakeCommands({
+        ps: async () => {
+          throw error
+        }
+      }).commands
+    )
+  assert.equal(await failing(Object.assign(new Error('exit 1'), { code: 1 })).identify(4242), null)
+  await assert.rejects(
+    failing(Object.assign(new Error('timed out'), { killed: true })).identify(4242),
+    /timed out/
+  )
+  const garbled = darwinProvider(fakeOs(14), fakeCommands({ ps: async () => 'garbage' }).commands)
+  await assert.rejects(garbled.identify(4242), /no identity/)
 })

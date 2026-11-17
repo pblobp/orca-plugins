@@ -36,6 +36,7 @@ export type Sampler = {
   memory(): MemoryReading | null
   processes(): ProcessSnapshot | null
   seq(): number
+  invalidateProcesses(): void
   scheduled(): Tier | null
   idle(): Promise<void>
   stop(): void
@@ -56,6 +57,7 @@ export function createSampler(deps: SamplerDeps, initial: SamplerConfig): Sample
   let demand: (PollDemand & { at: number }) | null = null
   let latestMemory: MemoryReading | null = null
   let snapshot: ProcessSnapshot | null = null
+  let staleProcesses = false
   let activeTicks = 0
   let timer: TimerHandle | null = null
   let scheduledTier: Tier | null = null
@@ -115,7 +117,10 @@ export function createSampler(deps: SamplerDeps, initial: SamplerConfig): Sample
       try {
         if (!deps.provider.sections().processes) return
         const list = await deps.provider.processes()
-        if (!stopped && list) snapshot = tracker.update(list, now)
+        if (!stopped && list) {
+          snapshot = tracker.update(list, now)
+          staleProcesses = false
+        }
       } catch (error) {
         report(error)
       }
@@ -128,7 +133,9 @@ export function createSampler(deps: SamplerDeps, initial: SamplerConfig): Sample
   }
 
   const freshAt = (now: number) =>
-    snapshot !== null && now - snapshot.t <= ACTIVE_WINDOW_INTERVALS * config.activeIntervalMs
+    snapshot !== null &&
+    !staleProcesses &&
+    now - snapshot.t <= ACTIVE_WINDOW_INTERVALS * config.activeIntervalMs
 
   function wantsProcesses(tier: Tier, now: number): boolean {
     if (tier !== 'active' || !demandedAt(now)) return false
@@ -230,6 +237,9 @@ export function createSampler(deps: SamplerDeps, initial: SamplerConfig): Sample
     memory: () => latestMemory,
     processes: () => snapshot,
     seq: () => counter,
+    invalidateProcesses() {
+      staleProcesses = true
+    },
     scheduled: () => scheduledTier,
     async idle() {
       while (reading || processReading) await (reading ?? processReading)

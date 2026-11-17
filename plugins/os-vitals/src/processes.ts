@@ -1,10 +1,12 @@
 import { round1 } from './cpu.ts'
 import { processName, type RawProcess } from './parse/ps.ts'
 import type {
+  ListedProcess,
   ProcessPage,
   ProcessQuery,
   ProcessRow,
   ProcessSortKey,
+  QuitOffer,
   SortDirection
 } from './protocol.ts'
 
@@ -26,7 +28,7 @@ export type ProcessTracker = {
   clear(): void
 }
 
-const identity = (pid: number, startedAt: number) => `${pid}:${startedAt}`
+const identity = (pid: number, start: string) => `${pid}:${start}`
 
 export function createProcessTracker(): ProcessTracker {
   let previous = new Map<string, { cpuTime: number; t: number }>()
@@ -34,7 +36,7 @@ export function createProcessTracker(): ProcessTracker {
     update(raw, t) {
       const next = new Map<string, { cpuTime: number; t: number }>()
       const rows: ProcessRow[] = raw.map((entry) => {
-        const key = identity(entry.pid, entry.startedAt)
+        const key = identity(entry.pid, entry.start)
         const before = previous.get(key)
         const elapsed = before ? (t - before.t) / 1000 : 0
         const cpu =
@@ -48,10 +50,12 @@ export function createProcessTracker(): ProcessTracker {
           uid: entry.uid,
           user: entry.user,
           name: processName(entry.comm),
+          path: entry.comm,
           cpu: Number.isFinite(cpu) ? round1(cpu) : 0,
           memory: entry.rss,
           cpuTime: entry.cpuTime,
-          startedAt: entry.startedAt
+          startedAt: entry.startedAt,
+          start: entry.start
         }
       })
       previous = next
@@ -96,7 +100,9 @@ function primary(a: ProcessRow, b: ProcessRow, sort: ProcessSortKey): number {
   return a[sort] - b[sort]
 }
 
-export function queryProcesses(snapshot: ProcessSnapshot, query: ProcessQuery): ProcessPage {
+export type ProcessSlice = Omit<ProcessPage, 'rows'> & { rows: ProcessRow[] }
+
+export function queryProcesses(snapshot: ProcessSnapshot, query: ProcessQuery): ProcessSlice {
   const matched = snapshot.rows.filter((row) => matches(row, query.filter))
   const sign = query.direction === 'asc' ? 1 : -1
   matched.sort((a, b) => primary(a, b, query.sort) * sign || a.pid - b.pid)
@@ -107,4 +113,12 @@ export function queryProcesses(snapshot: ProcessSnapshot, query: ProcessQuery): 
     offset: query.offset,
     sampledAt: snapshot.t
   }
+}
+
+export function withOffers(
+  slice: ProcessSlice,
+  offer: (row: ProcessRow) => QuitOffer
+): ProcessPage {
+  const rows: ListedProcess[] = slice.rows.map((row) => ({ ...row, quit: offer(row) }))
+  return { ...slice, rows }
 }

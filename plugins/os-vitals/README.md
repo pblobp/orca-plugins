@@ -3,9 +3,9 @@
 A system monitor for Orca. A panel in the right sidebar draws live CPU, memory and processes, and an
 item in the status bar keeps the current numbers in view while you work.
 
-**Status: in development.** This version reads CPU, memory and processes on macOS, and CPU on Linux
-and Windows. Network, disk, GPU, battery, energy, quitting a process and the alerts arrive in later
-versions; the platform table below says what works today.
+**Status: in development.** This version reads CPU, memory and processes, and quits processes, on
+macOS, and reads CPU on Linux and Windows. Network, disk, GPU, battery, energy and the alerts
+arrive in later versions; the platform table below says what works today.
 
 ## What it shows
 
@@ -19,7 +19,8 @@ versions; the platform table below says what works today.
   - The five processes using the most CPU, with a link to the full list.
 - **Processes.** Every process with its CPU, memory and PID. Filter by name or PID, sort by any
   column, and load 100 more rows at a time. Select a row (or press Enter or Space on it) to see its
-  user, parent, start time, threads, CPU time, memory and command line. Escape closes the details.
+  user, parent, start time, threads, CPU time, memory and command line, and to quit it. Escape
+  closes the details.
 - **Status bar.** `CPU 23% · MEM 61%`, updated at most every 5 seconds and only when a number
   changes. Its tooltip shows the load average and memory. Pressing it opens the panel.
 
@@ -47,7 +48,7 @@ When you install OS Vitals, Orca asks you to approve this list.
 | ------------------ | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/usr/bin/vm_stat` | macOS, every 5 seconds while the status bar or alerts need it, and every refresh while the panel is open | Memory page counts: app memory, wired, compressed and cached files                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `/usr/sbin/sysctl` | macOS, with every `vm_stat`                                                                              | Reads `hw.memsize`, `vm.swapusage` and `kern.memorystatus_vm_pressure_level`: total memory, swap and memory pressure                                                                                                                                                                                                                                                                                                                                                 |
-| `/bin/ps`          | macOS, only while the panel shows processes, and when you open a process's details                       | `ps -A -o pid= -o ppid= -o uid= -o pcpu= -o rss= -o time= -o lstart= -o user= -o comm=` lists processes. For details, `ps -p <pid>` adds the command line and `ps -M -p <pid>` counts threads                                                                                                                                                                                                                                                                        |
+| `/bin/ps`          | macOS, only while the panel shows processes, when you open a process's details, and right before a quit  | `ps -A -o pid= -o ppid= -o uid= -o pcpu= -o rss= -o time= -o lstart= -o user= -o comm=` lists processes. For details, `ps -p <pid>` adds the command line and `ps -M -p <pid>` counts threads. Before a quit, `ps -p <pid> -o lstart= -o uid= -o comm=` reads that one process again                                                                                                                                                                                 |
 | `/usr/sbin/ioreg`  | macOS, once when the worker starts                                                                       | `ioreg -p IODeviceTree -c IOPlatformDevice` tells performance cores from efficiency cores                                                                                                                                                                                                                                                                                                                                                                            |
 | Orca's own CLI     | Only when you press the status bar item or run the command                                               | Orca has no call that opens a plugin's panel, but its CLI does. The worker runs `orca plugin list --json` to learn its own install key, then `orca plugin open <key> --panel os-vitals --json`. It runs the copy inside Orca's application folder (`Orca.app/Contents/Resources/bin/orca` on macOS, `resources/bin/orca-ide` beside Orca on Linux), never one found on `PATH`. If it cannot find or run it, it shows a notification with the current numbers instead |
 
@@ -72,6 +73,40 @@ Process names and command lines are shown in the panel as plain text and never l
 - No telemetry, analytics or data collection. Readings stay in the worker's memory for the history
   length you choose and are gone when the worker stops.
 - It writes no files.
+- It never signals a process you have not confirmed in the panel.
+
+## Quitting a process
+
+Select a process in the Processes view and press **Quit…**. A confirmation names the process, its
+PID, when it started, who owns it and its command line. When you confirm, OS Vitals' worker sends
+it `SIGTERM`, the same signal `kill <pid>` sends from a terminal, as your user account and with no
+extra rights. A well-behaved program saves and exits. If it is still running 5 seconds later, the
+panel offers **Force quit…**, which sends `SIGKILL` after a second confirmation; the program then
+gets no chance to save anything.
+
+The worker, not the panel, decides. Right before each signal it checks, in this order, and sends
+nothing if a check fails:
+
+1. **The PID is above 1.** PID 1 starts every other process.
+2. **You own it.** Processes of other users and of the system are refused (`not_owner`).
+3. **It is still the same process.** The worker reads that one PID again with `ps`. If it has
+   exited, the answer is `gone`. If its start time, owner or name differ from the list you chose it
+   from, or the worker never listed it, the answer is `changed`: the PID was reused, and the new
+   process is never signalled.
+4. **It is not part of Orca.** Not the worker, not the processes that started it, and nothing
+   inside Orca's application (`Orca.app` on macOS, the folder that holds Orca on Linux).
+5. **It is not in the protected set** (all in `src/protected.ts`): anything under `/System/`,
+   `/usr/libexec/`, `/usr/sbin/` or `/sbin/`; `loginwindow`, `WindowServer`, `Dock`, `Finder`,
+   `WindowManager` and `launchd`; Orca's helpers outside its application, meaning any path that
+   contains `/orca/daemon-host/` (quitting the terminal daemon would end every Orca terminal and
+   agent) and anything whose name starts with `Orca`; and on Linux `systemd`, `gnome-shell`,
+   `Xorg`, `Xwayland`, `kwin_*`, `plasmashell`, `gdm*`, `sddm`, `dbus-daemon`, `dbus-broker`,
+   `pipewire`, `wireplumber`, `sshd` and `login`.
+
+Checks 4 and 5 answer `protected`. If the system refuses the signal, the answer is `not_permitted`.
+The details pane shows Quit only for processes that pass the checks the list can make, and says why
+for the others. Processes started from Orca's terminals, such as dev servers and agents, are not
+protected: stopping a runaway one is the point.
 
 ## Settings
 
@@ -100,6 +135,7 @@ In development: the table shows this version, not the planned 1.0.
 | Uptime                                      | Yes     | Yes     | Yes                                       |
 | Memory                                      | Yes     | Not yet | Used and free only                        |
 | Processes and their details                 | Yes     | Not yet | No                                        |
+| Quitting a process                          | Yes     | Not yet | No                                        |
 | Status bar item                             | Yes     | Yes     | Yes                                       |
 | Opening the panel from the status bar       | Yes     | Yes     | No: shows a notification with the numbers |
 | Network, disk, GPU, battery, energy, alerts | Not yet | Not yet | No                                        |
@@ -122,6 +158,9 @@ node tools/os-vitals/serve.ts                   # the panel in a browser with a 
 `tools/os-vitals/serve.ts` serves `tools/os-vitals/harness.html`, which loads the real panel files
 with a fake `window.orca` that answers with generated readings. `?scenario=` picks `loading`,
 `error`, `unsupported`, `windows`, `flaky`, `empty` or `pressure`, `?theme=light` the light theme,
-`?view=processes` the Processes view, and `?act=` runs steps after load (`tab:Processes`,
-`filter:<text>`, `select:<name>`, separated by commas). The `t` key switches theme.
-`tools/os-vitals/gallery.html` shows several widths and states side by side.
+`?view=processes` the Processes view, and `?act=` runs steps after load (`tab:` or `click:` a button
+by its text, `filter:<text>`, `select:<name>`, `focus:<name>`, `key:<key>`, `wait:<ms>`, `probe`,
+separated by commas). The `t` key switches theme. `tools/os-vitals/gallery.html` shows several
+widths and states side by side, and `tools/os-vitals/gallery-quit.html` every step of quitting a
+process. The fake quits `node` at once, keeps `vite` running until it is forced, and refuses `tsc`
+(`changed`), `agent` (`not_permitted`) and `watchman` (`gone`).

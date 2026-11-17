@@ -1,12 +1,28 @@
+import { userInfo } from 'node:os'
+import { posix } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { OrcaWorkerApi } from 'orca/worker'
-import { locateCli, runOrcaCli, type CliResult } from './cli.ts'
+import { locateCli, outermostApp, runOrcaCli, type CliResult } from './cli.ts'
 import { realClock, type Clock } from './clock.ts'
 import { openOwnPanel, type RunCli } from './open-panel.ts'
 import { createProvider, type Provider } from './platform/index.ts'
 import { processName } from './parse/ps.ts'
-import { queryProcesses, readQuery } from './processes.ts'
-import type { DetailResult, HelloResult, PollInput, PollResult, Sample } from './protocol.ts'
+import { queryProcesses, readQuery, withOffers } from './processes.ts'
+import type {
+  DetailResult,
+  HelloResult,
+  PollInput,
+  PollResult,
+  QuitResult,
+  Sample
+} from './protocol.ts'
+import {
+  createOfferer,
+  quitProcess,
+  readQuitInput,
+  type QuitContext,
+  type QuitSignal
+} from './quit.ts'
 import { createSampler, type SamplerConfig } from './sampler.ts'
 import {
   backgroundEnabled,
@@ -26,6 +42,8 @@ export type VitalsDeps = {
   locateCli: () => string | null
   runCli: (program: string, args: readonly string[], signal: AbortSignal) => Promise<CliResult>
   workerFile: string | null
+  quit: QuitContext
+  kill: (pid: number, signal: QuitSignal) => void
 }
 
 export type Vitals = {
@@ -101,6 +119,7 @@ export async function startVitals(orca: OrcaWorkerApi, deps: VitalsDeps): Promis
 
   const updateStatusBar = (params: StatusBarUpdate): void => {
     orca.host.call('statusBar.update', params).catch((error: unknown) => {
+      statusBar.failed(params)
       orca.log(`OS Vitals could not update its status bar item: ${message(error)}`)
     })
   }
@@ -177,7 +196,10 @@ export async function startVitals(orca: OrcaWorkerApi, deps: VitalsDeps): Promis
         samples: reset ? trimCores(samples) : samples,
         current: { load: provider.load(), uptime: provider.uptime() },
         memory: sampler.memory(),
-        processes: query && snapshot ? queryProcesses(snapshot, query) : null,
+        processes:
+          query && snapshot
+            ? withOffers(queryProcesses(snapshot, query), createOfferer(deps.quit, snapshot.rows))
+            : null,
         intervalMs: settings.refreshSeconds * 1000,
         historyMs: settings.historyMinutes * 60 * 1000
       }
@@ -191,8 +213,10 @@ export async function startVitals(orca: OrcaWorkerApi, deps: VitalsDeps): Promis
       const raw = await provider.processDetail(pid)
       if (!raw || raw.pid !== pid) return { found: false }
       const rows = sampler.processes()?.rows ?? []
-      const row = rows.find((entry) => entry.pid === pid && entry.startedAt === raw.startedAt)
+      const row = rows.find((entry) => entry.pid === pid && entry.start === raw.start)
       const parent = rows.find((entry) => entry.pid === raw.ppid)
+      const name = row ? row.name : commandName(raw.command)
+      const offer = createOfferer(deps.quit, rows)
       return {
         found: true,
         process: {
@@ -201,15 +225,40 @@ export async function startVitals(orca: OrcaWorkerApi, deps: VitalsDeps): Promis
           parentName: parent ? parent.name : null,
           uid: raw.uid,
           user: raw.user,
-          name: row ? row.name : commandName(raw.command),
+          name,
           command: raw.command,
           startedAt: raw.startedAt,
+          start: raw.start,
+          quit: row ? offer(row) : offer({ ...raw, name, path: '', cpu: 0, memory: raw.rss }),
           cpuTime: raw.cpuTime,
           memory: raw.rss,
           cpu: row ? row.cpu : null,
           threads: raw.threads
         }
       }
+    })
+  )
+
+  subscriptions.push(
+    orca.panels.handle('os-vitals.process.quit', async (rawInput): Promise<QuitResult> => {
+      const input = readQuitInput(rawInput)
+      if (!input) throw invalid('quit takes a whole pid, the start time the list gave, and force')
+      const listed = sampler.processes()?.rows ?? []
+      const result = await quitProcess(input, {
+        ...deps.quit,
+        listed: () => listed,
+        identify: (pid) => provider.identify(pid),
+        kill: deps.kill
+      })
+      const row = listed.find((entry) => entry.pid === input.pid)
+      const signal = input.force ? 'SIGKILL' : 'SIGTERM'
+      if (result.ok) {
+        sampler.invalidateProcesses()
+        orca.log(`OS Vitals sent ${signal} to ${row ? row.name : 'pid'} (${input.pid})`)
+      } else {
+        orca.log(`OS Vitals did not quit pid ${input.pid}: ${result.reason}`)
+      }
+      return result
     })
   )
 
@@ -278,8 +327,31 @@ export function realDeps(): VitalsDeps {
       new Promise((resolve) => {
         runOrcaCli(program, args, signal, resolve)
       }),
-    workerFile: ownFile()
+    workerFile: ownFile(),
+    quit: {
+      uid: currentUid(),
+      selfPid: process.pid,
+      parentPid: process.ppid,
+      bundle: appBundle(process.platform, process.execPath)
+    },
+    kill: (pid, signal) => {
+      process.kill(pid, signal)
+    }
   }
+}
+
+function currentUid(): number {
+  try {
+    return userInfo().uid
+  } catch {
+    return -1
+  }
+}
+
+export function appBundle(platform: string, execPath: string): string | null {
+  if (platform === 'darwin') return outermostApp(execPath)
+  if (platform === 'linux' && posix.isAbsolute(execPath)) return posix.dirname(execPath)
+  return null
 }
 
 let current: Vitals | null = null

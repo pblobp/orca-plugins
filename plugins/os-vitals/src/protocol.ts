@@ -72,20 +72,26 @@ export type ProcessQuery = {
   offset: number
 }
 
+export type QuitOffer = 'allowed' | 'not_owner' | 'system' | 'orca'
+
 export type ProcessRow = {
   pid: number
   ppid: number
   uid: number
   user: string
   name: string
+  path: string
   cpu: number
   memory: number
   cpuTime: number
   startedAt: number
+  start: string
 }
 
+export type ListedProcess = ProcessRow & { quit: QuitOffer }
+
 export type ProcessPage = {
-  rows: ProcessRow[]
+  rows: ListedProcess[]
   total: number
   matched: number
   offset: number
@@ -129,6 +135,8 @@ export type ProcessDetail = {
   name: string
   command: string
   startedAt: number
+  start: string
+  quit: QuitOffer
   cpuTime: number
   memory: number
   cpu: number | null
@@ -137,10 +145,21 @@ export type ProcessDetail = {
 
 export type DetailResult = { found: true; process: ProcessDetail } | { found: false }
 
+export type QuitInput = {
+  pid: number
+  startedAt: string
+  force: boolean
+}
+
+export type QuitReason = 'protected' | 'not_owner' | 'gone' | 'changed' | 'not_permitted'
+
+export type QuitResult = { ok: true } | { ok: false; reason: QuitReason }
+
 declare module 'orca' {
   interface PluginRequests {
     'os-vitals.hello': { output: HelloResult }
     'os-vitals.poll': { input: PollInput; output: PollResult }
     'os-vitals.process.detail': { input: DetailInput; output: DetailResult }
+    'os-vitals.process.quit': { input: QuitInput; output: QuitResult }
   }
 }

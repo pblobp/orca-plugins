@@ -123,3 +123,20 @@ test('visibility is sent on its own, and hiding forgets the last text', () => {
     }
   ])
 })
+
+test('after a refused update, visibility and text are sent again with the next reading', async () => {
+  const { time, updates, statusBar } = bar()
+  statusBar.applyVisibility('hidden')
+  statusBar.failed({ id: 'os-vitals', visible: false })
+  statusBar.show('hidden', input(10))
+  assert.deepEqual(updates.at(-1), { id: 'os-vitals', visible: false })
+  statusBar.applyVisibility('cpu')
+  statusBar.show('cpu', input(10))
+  statusBar.failed({ id: 'os-vitals', text: 'CPU 10%' })
+  await time.advance(5000)
+  statusBar.show('cpu', input(10))
+  assert.deepEqual(
+    updates.map((update) => update.text ?? `visible:${update.visible}`),
+    ['visible:false', 'visible:false', 'visible:true', 'CPU 10%', 'CPU 10%']
+  )
+})

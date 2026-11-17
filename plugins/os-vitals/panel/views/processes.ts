@@ -1,9 +1,11 @@
 import type {
   DetailResult,
+  ListedProcess,
   ProcessDetail,
   ProcessQuery,
-  ProcessRow,
   ProcessSortKey,
+  QuitOffer,
+  QuitReason,
   SortDirection
 } from '../../src/protocol.ts'
 import { cpuText } from '../cards/top.ts'
@@ -19,12 +21,36 @@ import {
   toggleAttr
 } from '../dom.ts'
 import { ago, bytes, cpuTime } from '../format.ts'
+import { createConfirmDialog } from '../quit-dialog.ts'
 import { readStored, writeStored, type PanelActions, type PanelModel, type View } from '../state.ts'
 
 const SORT_STORE = 'os-vitals.sort'
 const PAGE = 100
 const MAX_ROWS = 1000
 const FILTER_DELAY_MS = 250
+const STILL_RUNNING_MS = 5000
+const AFTER_FORCE_MS = 1000
+
+const OFFER_TEXT: Record<Exclude<QuitOffer, 'allowed'>, string> = {
+  not_owner: 'This process belongs to another user, so it cannot be quit from here.',
+  system: 'This process is part of the operating system, so it cannot be quit from here.',
+  orca: 'This process is part of Orca, so it cannot be quit from here.'
+}
+
+export function refusalText(reason: QuitReason, name: string): string {
+  switch (reason) {
+    case 'protected':
+      return `OS Vitals does not quit ${name}: it is part of the operating system or of Orca.`
+    case 'not_owner':
+      return `${name} belongs to another user, so OS Vitals cannot quit it.`
+    case 'gone':
+      return `${name} has already exited.`
+    case 'changed':
+      return `${name} changed since the list was read, so nothing was sent. Check the list and try again.`
+    case 'not_permitted':
+      return `The system did not let OS Vitals quit ${name}.`
+  }
+}
 
 type Column = { key: ProcessSortKey; label: string; className: string }
 
@@ -48,7 +74,7 @@ type RowView = {
   cpu: HTMLElement
   memory: HTMLElement
   pid: HTMLElement
-  data: ProcessRow | null
+  data: ListedProcess | null
 }
 
 type Detail =
@@ -86,7 +112,12 @@ export function createProcesses(actions: PanelActions): View {
   let { sort, direction } = storedSort()
   let filter = ''
   let limit = PAGE
-  let selected: { pid: number; startedAt: number } | null = null
+  let selected: { pid: number; startedAt: number; start: string } | null = null
+  let quitStatus = ''
+  let forceOffered = false
+  let notice = ''
+  let quitRun = 0
+  const dialog = createConfirmDialog()
   let focusedPid: number | null = null
   let detail: Detail | null = null
   let filterTimer: number | undefined
@@ -186,6 +217,20 @@ export function createProcesses(actions: PanelActions): View {
     commandText
   ])
   const drawerStatus = el('p', { className: 'vt-muted', attrs: { 'aria-live': 'polite' } })
+  const quitNote = el('p', { className: 'vt-muted' })
+  const quitStatusLine = el('p', { className: 'vt-quit-status', attrs: { role: 'status' } })
+  const forceButton = el('button', {
+    className: 'vt-button vt-danger',
+    text: 'Force quit…',
+    attrs: { type: 'button' }
+  })
+  const quitButton = el('button', {
+    className: 'vt-button vt-danger',
+    text: 'Quit…',
+    attrs: { type: 'button' }
+  })
+  const quitActions = el('div', { className: 'vt-quit-actions' }, [forceButton, quitButton])
+  const listNotice = el('p', { className: 'vt-list-notice', attrs: { role: 'status' } })
   const drawer = el(
     'section',
     { className: 'vt-drawer', attrs: { 'aria-labelledby': 'vt-drawer-title' } },
@@ -199,7 +244,10 @@ export function createProcesses(actions: PanelActions): View {
       ]),
       drawerStatus,
       factList,
-      commandBlock
+      commandBlock,
+      quitNote,
+      quitStatusLine,
+      quitActions
     ]
   )
   drawer.hidden = true
@@ -208,7 +256,7 @@ export function createProcesses(actions: PanelActions): View {
     el('h2', { className: 'vt-title', text: 'Processes are not available' }),
     el('p', { className: 'vt-muted', text: 'OS Vitals cannot list processes on this system yet.' })
   ])
-  const list = el('div', { className: 'vt-proclist' }, [toolbar, table, footer, drawer])
+  const list = el('div', { className: 'vt-proclist' }, [toolbar, listNotice, table, footer, drawer])
   const element = el('div', { className: 'vt-processes' }, [list, unsupported])
   const rows: RowView[] = []
 
@@ -267,8 +315,12 @@ export function createProcesses(actions: PanelActions): View {
     view.tr.focus()
   }
 
-  function open(data: ProcessRow): void {
-    selected = { pid: data.pid, startedAt: data.startedAt }
+  function open(data: ListedProcess): void {
+    selected = { pid: data.pid, startedAt: data.startedAt, start: data.start }
+    quitStatus = ''
+    forceOffered = false
+    notice = ''
+    quitRun += 1
     focusedPid = data.pid
     detail = { status: 'loading' }
     const wanted = selected
@@ -291,9 +343,147 @@ export function createProcesses(actions: PanelActions): View {
     const pid = selected?.pid
     selected = null
     detail = null
+    quitStatus = ''
+    forceOffered = false
+    quitRun += 1
     render()
     focusRow(rows.find((entry) => entry.data?.pid === pid))
   }
+
+  function target(): {
+    pid: number
+    start: string
+    name: string
+    user: string
+    startedAt: number
+    command: string
+    offer: QuitOffer
+  } | null {
+    if (!selected) return null
+    const live = model?.processes?.rows.find(
+      (data) => data.pid === selected?.pid && data.start === selected?.start
+    )
+    const known = detail?.status === 'ready' ? detail.data : null
+    const name = known?.name ?? live?.name
+    if (!name) return null
+    return {
+      pid: selected.pid,
+      start: selected.start,
+      name,
+      user: known?.user ?? live?.user ?? '',
+      startedAt: known?.startedAt ?? live?.startedAt ?? selected.startedAt,
+      command: known?.command ?? '',
+      offer: live?.quit ?? known?.quit ?? 'system'
+    }
+  }
+
+  async function stillRunning(pid: number, start: string): Promise<boolean | null> {
+    try {
+      const result = await actions.requestDetail(pid)
+      return result.found && result.process.start === start
+    } catch {
+      return null
+    }
+  }
+
+  function finishGone(name: string, run: number): void {
+    if (run !== quitRun) return
+    const pid = selected?.pid
+    notice = `${name} has quit.`
+    selected = null
+    detail = null
+    quitStatus = ''
+    forceOffered = false
+    quitRun += 1
+    render()
+    actions.queryChanged()
+    focusRow(rows.find((entry) => entry.data && entry.data.pid !== pid && entry.tr.isConnected))
+  }
+
+  async function checkAfter(run: number, pid: number, start: string, name: string): Promise<void> {
+    if (run !== quitRun) return
+    const running = await stillRunning(pid, start)
+    if (run !== quitRun) return
+    if (running === false) {
+      finishGone(name, run)
+      return
+    }
+    quitStatus =
+      running === null
+        ? `OS Vitals could not check whether ${name} quit.`
+        : `${name} is still running.`
+    forceOffered = running === true
+    render()
+    if (forceOffered) forceButton.focus()
+  }
+
+  async function quit(force: boolean): Promise<void> {
+    const current = target()
+    if (!current || current.offer !== 'allowed') return
+    const started = ago(current.startedAt, Date.now())
+    const confirmed = await dialog.confirm(
+      force
+        ? {
+            title: `Force quit ${current.name}?`,
+            meta: `PID ${current.pid}, started ${started}${current.user ? ` by ${current.user}` : ''}.`,
+            command: current.command,
+            warning: `${current.name} is stopped at once. It gets no chance to save its work.`,
+            confirmLabel: 'Force quit',
+            returnFocus: forceButton
+          }
+        : {
+            title: `Quit ${current.name}?`,
+            meta: `PID ${current.pid}, started ${started}${current.user ? ` by ${current.user}` : ''}.`,
+            command: current.command,
+            warning:
+              'The process is asked to exit. Anything it has not saved is lost. ' +
+              'If it is still running after 5 seconds, you can force it to quit.',
+            confirmLabel: 'Quit',
+            returnFocus: quitButton
+          }
+    )
+    if (!confirmed || !selected || selected.pid !== current.pid) return
+    quitRun += 1
+    const run = quitRun
+    forceOffered = false
+    quitStatus = force ? `Forcing ${current.name} to quit…` : `Asking ${current.name} to quit…`
+    render()
+    let reason: QuitReason | null = null
+    try {
+      const result = await actions.requestQuit({
+        pid: current.pid,
+        startedAt: current.start,
+        force
+      })
+      reason = result.ok ? null : result.reason
+    } catch (error) {
+      if (run !== quitRun) return
+      quitStatus = `OS Vitals could not ask ${current.name} to quit (${codeOf(error)}).`
+      render()
+      return
+    }
+    if (run !== quitRun) return
+    actions.queryChanged()
+    if (reason) {
+      quitStatus = refusalText(reason, current.name)
+      render()
+      return
+    }
+    quitStatus = force ? `Forced ${current.name} to quit.` : `Asked ${current.name} to quit.`
+    render()
+    const wait = force ? AFTER_FORCE_MS : STILL_RUNNING_MS
+    window.setTimeout(check, wait)
+    function check(): void {
+      void checkAfter(run, current?.pid ?? 0, current?.start ?? '', current?.name ?? '')
+    }
+  }
+
+  quitButton.addEventListener('click', () => {
+    void quit(false)
+  })
+  forceButton.addEventListener('click', () => {
+    void quit(true)
+  })
 
   function applyFilter(): void {
     filterTimer = undefined
@@ -346,7 +536,7 @@ export function createProcesses(actions: PanelActions): View {
     focusRow(next)
   })
 
-  function renderRows(page: readonly ProcessRow[]): void {
+  function renderRows(page: readonly ListedProcess[]): void {
     const hadFocus = rows.some((entry) => entry.tr === document.activeElement)
     while (rows.length < page.length) rows.push(rowView())
     const visible = rows.slice(0, page.length)
@@ -359,7 +549,7 @@ export function createProcesses(actions: PanelActions): View {
       setText(view.memory, bytes(data.memory))
       setText(view.pid, String(data.pid))
       const isSelected =
-        selected !== null && selected.pid === data.pid && selected.startedAt === data.startedAt
+        selected !== null && selected.pid === data.pid && selected.start === data.start
       view.tr.classList.toggle('vt-selected', isSelected)
       toggleAttr(view.tr, 'aria-selected', isSelected, 'true')
     })
@@ -383,12 +573,24 @@ export function createProcesses(actions: PanelActions): View {
     }
   }
 
-  function renderDrawer(page: readonly ProcessRow[]): void {
+  function renderQuit(): void {
+    const current = target()
+    const offer = current?.offer ?? null
+    const quitting = quitStatus !== ''
+    quitButton.hidden = offer !== 'allowed' || quitting
+    forceButton.hidden = !forceOffered || offer !== 'allowed'
+    quitNote.hidden = offer === null || offer === 'allowed'
+    setText(quitNote, offer && offer !== 'allowed' ? OFFER_TEXT[offer] : '')
+    setText(quitStatusLine, quitStatus)
+    quitStatusLine.hidden = quitStatus === ''
+    quitActions.hidden = quitButton.hidden && forceButton.hidden
+  }
+
+  function renderDrawer(page: readonly ListedProcess[]): void {
     drawer.hidden = selected === null
     if (!selected || !detail) return
-    const live = page.find(
-      (data) => data.pid === selected?.pid && data.startedAt === selected?.startedAt
-    )
+    renderQuit()
+    const live = page.find((data) => data.pid === selected?.pid && data.start === selected?.start)
     const known = detail.status === 'ready' ? detail.data : null
     setText(drawerName, known?.name ?? live?.name ?? `PID ${selected.pid}`)
     setText(drawerPid, `PID ${selected.pid}`)
@@ -438,6 +640,8 @@ export function createProcesses(actions: PanelActions): View {
     const matched = page ? page.matched.toLocaleString('en-US') : '–'
     setText(countText, filter ? `${matched} of ${total} processes` : `${total} processes`)
     loadMore.hidden = !page || shown.length >= page.matched || limit >= MAX_ROWS
+    setText(listNotice, notice)
+    listNotice.hidden = notice === ''
     renderDrawer(shown)
   }
 
@@ -452,7 +656,7 @@ export function createProcesses(actions: PanelActions): View {
     query: (current) =>
       current.hello.sections.processes ? { sort, direction, filter, limit, offset: 0 } : null,
     escape() {
-      if (!selected) return false
+      if (dialog.isOpen() || !selected) return false
       close()
       return true
     }

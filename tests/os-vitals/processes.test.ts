@@ -99,10 +99,12 @@ const row = (pid: number, name: string, cpu: number, memory: number): ProcessRow
   uid: 501,
   user: 'user',
   name,
+  path: `/opt/tools/${name}`,
   cpu,
   memory,
   cpuTime: 0,
-  startedAt: 0
+  startedAt: 0,
+  start: 'Tue Nov 17 10:00:00 2026'
 })
 
 const SNAPSHOT: ProcessSnapshot = {
