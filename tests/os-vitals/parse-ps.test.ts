@@ -1,12 +1,15 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
+  START_TOKEN,
   countThreads,
   parseCpuTime,
   parseDetail,
+  parseIdentity,
   parseLstart,
   parsePs,
   parsePsLine,
+  normalizeStart,
   processName
 } from '../../plugins/os-vitals/src/parse/ps.ts'
 import { fixture } from './helpers.ts'
@@ -55,6 +58,7 @@ test('ps output parses every complete line and skips the rest', () => {
     rss: 26512 * 1024,
     cpuTime: 1232.51,
     startedAt: local(2026, 10, 14, 20, 37, 20),
+    start: 'Sat Nov 14 20:37:20 2026',
     user: 'root',
     comm: '/sbin/launchd'
   })
@@ -106,4 +110,29 @@ test('details carry the whole command line and the thread count', () => {
   assert.equal(parseDetail('', null), null)
   assert.equal(countThreads('no header\nline'), null)
   assert.equal(countThreads(''), null)
+})
+
+test('the start token is the ps start time with single spaces, and only that form is accepted', () => {
+  assert.equal(normalizeStart(' Mon Nov  2 09:05:07 2026 '), 'Mon Nov 2 09:05:07 2026')
+  assert.equal(
+    parsePs(fixture('darwin/ps.txt')).find((p) => p.pid === 990)?.start,
+    'Mon Nov 2 09:05:07 2026'
+  )
+  assert.ok(START_TOKEN.test('Mon Nov 2 09:05:07 2026'))
+  assert.ok(START_TOKEN.test('Sat Nov 14 20:37:20 2026'))
+  assert.equal(START_TOKEN.test('Mon Nov  2 09:05:07 2026'), false)
+  assert.equal(START_TOKEN.test('2026-11-02T09:05:07Z'), false)
+  assert.equal(START_TOKEN.test('Mon Nov 2 09:05:07 2026; rm -rf /'), false)
+})
+
+test('re-identification reads one start time, owner and command', () => {
+  assert.deepEqual(parseIdentity(fixture('darwin/ps-identity.txt')), {
+    start: 'Tue Nov 17 10:00:00 2026',
+    uid: 501,
+    path: '/Applications/Example App.app/Contents/MacOS/Example App',
+    name: 'Example App'
+  })
+  assert.equal(parseIdentity(''), null)
+  assert.equal(parseIdentity('Tue Nov 17 10:00:00 2026'), null)
+  assert.equal(parseIdentity('Tue Foo 17 10:00:00 2026   501 /bin/sleep'), null)
 })

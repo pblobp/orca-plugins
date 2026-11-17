@@ -6,6 +6,8 @@ import type {
   PollInput,
   PollResult,
   ProcessPage,
+  QuitInput,
+  QuitResult,
   Sample,
   ViewName
 } from '../src/protocol.ts'
@@ -124,7 +126,9 @@ const actions: PanelActions = {
   showProcesses: () => showView('processes'),
   queryChanged: () => requestPoll(),
   requestDetail: (pid: number): Promise<DetailResult> =>
-    orca.plugin.request('os-vitals.process.detail', { pid }, { timeoutMs: REQUEST_TIMEOUT_MS })
+    orca.plugin.request('os-vitals.process.detail', { pid }, { timeoutMs: REQUEST_TIMEOUT_MS }),
+  requestQuit: (input: QuitInput): Promise<QuitResult> =>
+    orca.plugin.request('os-vitals.process.quit', input, { timeoutMs: REQUEST_TIMEOUT_MS })
 }
 const views: Record<ViewName, View> = {
   overview: createOverview(actions),

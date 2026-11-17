@@ -1,5 +1,5 @@
 import type { CpuTimes } from '../cpu.ts'
-import type { RawDetail, RawProcess } from '../parse/ps.ts'
+import type { Identity, RawDetail, RawProcess } from '../parse/ps.ts'
 import type { CoreInfo, LoadAverage, MemoryReading, Sections } from '../protocol.ts'
 
 export type Provider = {
@@ -15,6 +15,7 @@ export type Provider = {
   memory(): Promise<MemoryReading | null>
   processes(): Promise<RawProcess[] | null>
   processDetail(pid: number): Promise<RawDetail | null>
+  identify(pid: number): Promise<Identity | null>
   dispose(): void
 }
 

@@ -1,9 +1,17 @@
-import { assert, mockHost, mountWorker, test, type MockHost, type TestWorker } from 'orca/testing'
+import {
+  assert,
+  hostError,
+  mockHost,
+  mountWorker,
+  test,
+  type MockHost,
+  type TestWorker
+} from 'orca/testing'
 import type { OrcaWorkerApi } from 'orca/worker'
 import type { CliResult } from './cli.ts'
 import type { Clock, TimerHandle } from './clock.ts'
 import type { CpuTimes } from './cpu.ts'
-import type { RawProcess } from './parse/ps.ts'
+import { processName, type Identity, type RawProcess } from './parse/ps.ts'
 import { nodeOsProvider } from './platform/fallback.ts'
 import type { Provider } from './platform/types.ts'
 import type {
@@ -72,7 +80,7 @@ const MEMORY: MemoryReading = {
   pressure: 'normal'
 }
 
-function fakeSystem() {
+function fakeSystem(extra: RawProcess[] = []) {
   const step = { user: 250, nice: 0, sys: 50, idle: 700, irq: 0 }
   const totals: CpuTimes[] = Array.from({ length: 4 }, () => ({
     user: 1000,
@@ -81,7 +89,15 @@ function fakeSystem() {
     idle: 10000,
     irq: 0
   }))
-  const calls = { processes: 0, detail: [] as number[], disposed: 0 }
+  const calls = {
+    processes: 0,
+    detail: [] as number[],
+    disposed: 0,
+    identify: [] as number[],
+    kills: [] as [number, string][]
+  }
+  const identities = new Map<number, Identity | null>()
+  let killError: string | null = null
   let cpuTime = 10
   const base = nodeOsProvider(
     {
@@ -102,43 +118,48 @@ function fakeSystem() {
     },
     'darwin'
   )
+  const rows = (): RawProcess[] => [
+    {
+      pid: 1,
+      ppid: 0,
+      uid: 0,
+      pcpu: 0.1,
+      rss: 20 * 1024 ** 2,
+      cpuTime: 100,
+      startedAt: 1000,
+      start: 'Sat Nov 14 20:37:20 2026',
+      user: 'root',
+      comm: '/sbin/launchd'
+    },
+    {
+      pid: 300,
+      ppid: 1,
+      uid: 501,
+      pcpu: 12,
+      rss: 2 * GB,
+      cpuTime,
+      startedAt: 2000,
+      start: 'Sun Nov 15 08:01:02 2026',
+      user: 'user',
+      comm: '/Applications/Example App.app/Contents/MacOS/Example App'
+    },
+    {
+      pid: 42,
+      ppid: 300,
+      uid: 501,
+      pcpu: 3,
+      rss: 300 * 1024 ** 2,
+      cpuTime: 5,
+      startedAt: 3000,
+      start: 'Mon Nov 16 12:56:29 2026',
+      user: 'user',
+      comm: 'node'
+    },
+    ...extra
+  ]
   const listing = (): RawProcess[] => {
     cpuTime += 1
-    return [
-      {
-        pid: 1,
-        ppid: 0,
-        uid: 0,
-        pcpu: 0.1,
-        rss: 20 * 1024 ** 2,
-        cpuTime: 100,
-        startedAt: 1000,
-        user: 'root',
-        comm: '/sbin/launchd'
-      },
-      {
-        pid: 300,
-        ppid: 1,
-        uid: 501,
-        pcpu: 12,
-        rss: 2 * GB,
-        cpuTime,
-        startedAt: 2000,
-        user: 'user',
-        comm: '/Applications/Example App.app/Contents/MacOS/Example App'
-      },
-      {
-        pid: 42,
-        ppid: 300,
-        uid: 501,
-        pcpu: 3,
-        rss: 300 * 1024 ** 2,
-        cpuTime: 5,
-        startedAt: 3000,
-        user: 'user',
-        comm: 'node'
-      }
-    ]
+    return rows()
   }
   const provider: Provider = {
     ...base,
@@ -159,11 +180,20 @@ function fakeSystem() {
         rss: 300 * 1024 ** 2,
         cpuTime: 5,
         startedAt: 3000,
+        start: 'Mon Nov 16 12:56:29 2026',
         user: 'user',
         comm: 'node /Users/user/project/server.js --port 5173',
         command: 'node /Users/user/project/server.js --port 5173',
         threads: 12
       }
+    },
+    async identify(pid) {
+      calls.identify.push(pid)
+      if (identities.has(pid)) return identities.get(pid) ?? null
+      const row = rows().find((entry) => entry.pid === pid)
+      return row
+        ? { start: row.start, uid: row.uid, path: row.comm, name: processName(row.comm) }
+        : null
     },
     dispose() {
       calls.disposed += 1
@@ -172,6 +202,14 @@ function fakeSystem() {
   return {
     provider,
     calls,
+    identities,
+    kill(pid: number, signal: string) {
+      calls.kills.push([pid, signal])
+      if (killError) throw Object.assign(new Error(killError), { code: killError })
+    },
+    failKill(code: string | null) {
+      killError = code
+    },
     setStep(next: CpuTimes) {
       Object.assign(step, next)
     }
@@ -211,10 +249,15 @@ function pluginList(): string {
 }
 
 async function setup(
-  options: { settings?: Record<string, string | number | boolean>; program?: string | null } = {}
+  options: {
+    settings?: Record<string, string | number | boolean>
+    program?: string | null
+    extra?: RawProcess[]
+    refuseStatusBar?: boolean
+  } = {}
 ): Promise<Setup> {
   const time = fakeClock(START)
-  const system = fakeSystem()
+  const system = fakeSystem(options.extra)
   const cli = {
     calls: [] as string[][],
     program: options.program === undefined ? '/Orca.app/orca' : options.program
@@ -228,11 +271,18 @@ async function setup(
       const stdout = args[1] === 'list' ? pluginList() : JSON.stringify({ ok: true, result: {} })
       return { ok: true, stdout, stderr: '', error: null }
     },
-    workerFile: '/dev/orca-plugins/plugins/os-vitals/src/worker.ts'
+    workerFile: '/dev/orca-plugins/plugins/os-vitals/src/worker.ts',
+    quit: { uid: 501, selfPid: 900, parentPid: 700, bundle: '/Applications/Orca.app' },
+    kill: (pid, signal) => system.kill(pid, signal)
   }
   let vitals: Vitals | null = null
   let api: OrcaWorkerApi | null = null
-  const host = mockHost({ settings: options.settings ?? {} })
+  const host = mockHost({
+    settings: options.settings ?? {},
+    results: options.refuseStatusBar
+      ? { 'statusBar.update': hostError('consent_required', 'not enabled with current consent') }
+      : {}
+  })
   const worker = await mountWorker(
     {
       default: async (orca: OrcaWorkerApi) => {
@@ -481,6 +531,8 @@ test('details name the command, parent, user, threads and memory of one process'
       name: 'node',
       command: 'node /Users/user/project/server.js --port 5173',
       startedAt: 3000,
+      start: 'Mon Nov 16 12:56:29 2026',
+      quit: 'allowed',
       cpuTime: 5,
       memory: 300 * 1024 ** 2,
       cpu: 3,
@@ -494,6 +546,163 @@ test('details name the command, parent, user, threads and memory of one process'
   )
   assert.deepEqual(system.calls.detail, [42, 7])
   assert.deepEqual(worker.refusals, [])
+  await worker.deactivate()
+})
+
+const user = (pid: number, comm: string, start: string, ppid = 1, uid = 501): RawProcess => ({
+  pid,
+  ppid,
+  uid,
+  pcpu: 0,
+  rss: 1024 ** 2,
+  cpuTime: 1,
+  startedAt: pid * 1000,
+  start,
+  user: uid === 0 ? 'root' : 'user',
+  comm
+})
+
+const SLEEP_START = 'Tue Nov 17 10:00:00 2026'
+const EXTRA: RawProcess[] = [
+  user(
+    600,
+    '/Users/user/Library/Application Support/orca/daemon-host/a1/orca-terminal-host',
+    'Mon Nov 16 14:27:40 2026'
+  ),
+  user(700, '/Applications/Orca.app/Contents/MacOS/Orca', 'Mon Nov 16 14:27:32 2026'),
+  user(
+    900,
+    '/Applications/Orca.app/Contents/Frameworks/Orca Helper.app/Contents/MacOS/Orca Helper',
+    'Tue Nov 17 09:00:00 2026',
+    700
+  ),
+  user(800, '/bin/sleep', SLEEP_START),
+  user(810, '/usr/local/bin/backup-agent', 'Tue Nov 17 09:30:00 2026', 1, 0)
+]
+
+async function quitSetup() {
+  const setup = await setupWith()
+  await setup.worker.request('os-vitals.poll', { view: 'processes', processes: query() })
+  return setup
+}
+
+function setupWith() {
+  return setup({ extra: EXTRA })
+}
+
+const quit = (worker: TestWorker, data: Record<string, unknown>) =>
+  worker.request('os-vitals.process.quit', data as never) as Promise<unknown>
+
+test('each listed row says whether quitting it is offered', async () => {
+  const { worker } = await setupWith()
+  const page = (await worker.request('os-vitals.poll', {
+    view: 'processes',
+    processes: query({ sort: 'pid', direction: 'asc' })
+  })) as PollResult
+  assert.deepEqual(
+    page.processes?.rows.map((row) => [row.pid, row.quit]),
+    [
+      [1, 'system'],
+      [42, 'allowed'],
+      [300, 'allowed'],
+      [600, 'orca'],
+      [700, 'orca'],
+      [800, 'allowed'],
+      [810, 'not_owner'],
+      [900, 'orca']
+    ]
+  )
+  await worker.deactivate()
+})
+
+test('a quit sends SIGTERM to the listed process, and the next poll reads the list again', async () => {
+  const { worker, system } = await quitSetup()
+  const reads = system.calls.processes
+  assert.deepEqual(await quit(worker, { pid: 800, startedAt: SLEEP_START, force: false }), {
+    ok: true
+  })
+  assert.deepEqual(system.calls.kills, [[800, 'SIGTERM']])
+  assert.deepEqual(system.calls.identify, [800])
+  await worker.request('os-vitals.poll', { view: 'processes', processes: query() })
+  assert.equal(system.calls.processes, reads + 1)
+  assert.deepEqual(await quit(worker, { pid: 800, startedAt: SLEEP_START, force: true }), {
+    ok: true
+  })
+  assert.deepEqual(system.calls.kills.at(-1), [800, 'SIGKILL'])
+  assert.deepEqual(worker.refusals, [])
+  await worker.deactivate()
+})
+
+test('refusals answer a reason and send nothing', async () => {
+  const { worker, system } = await quitSetup()
+  const cases: [Record<string, unknown>, string][] = [
+    [{ pid: 1, startedAt: 'Sat Nov 14 20:37:20 2026', force: false }, 'protected'],
+    [{ pid: 600, startedAt: 'Mon Nov 16 14:27:40 2026', force: true }, 'protected'],
+    [{ pid: 700, startedAt: 'Mon Nov 16 14:27:32 2026', force: false }, 'protected'],
+    [{ pid: 900, startedAt: 'Tue Nov 17 09:00:00 2026', force: false }, 'protected'],
+    [{ pid: 810, startedAt: 'Tue Nov 17 09:30:00 2026', force: false }, 'not_owner'],
+    [{ pid: 800, startedAt: 'Tue Nov 17 10:00:01 2026', force: false }, 'changed'],
+    [{ pid: 4242, startedAt: SLEEP_START, force: false }, 'gone']
+  ]
+  for (const [input, reason] of cases) {
+    assert.deepEqual(await quit(worker, input), { ok: false, reason }, JSON.stringify(input))
+  }
+  system.identities.set(800, { start: SLEEP_START, uid: 501, path: '/bin/zsh', name: 'zsh' })
+  assert.deepEqual(await quit(worker, { pid: 800, startedAt: SLEEP_START, force: false }), {
+    ok: false,
+    reason: 'changed'
+  })
+  assert.deepEqual(system.calls.kills, [])
+  system.identities.delete(800)
+  system.failKill('ESRCH')
+  assert.deepEqual(await quit(worker, { pid: 800, startedAt: SLEEP_START, force: false }), {
+    ok: false,
+    reason: 'gone'
+  })
+  system.failKill('EPERM')
+  assert.deepEqual(await quit(worker, { pid: 800, startedAt: SLEEP_START, force: false }), {
+    ok: false,
+    reason: 'not_permitted'
+  })
+  assert.deepEqual(worker.refusals, [])
+  await worker.deactivate()
+})
+
+test('quit input is checked strictly', async () => {
+  const { worker, system } = await quitSetup()
+  const bad: unknown[] = [
+    null,
+    {},
+    { pid: 800, startedAt: SLEEP_START },
+    { pid: '800', startedAt: SLEEP_START, force: false },
+    { pid: 800.5, startedAt: SLEEP_START, force: false },
+    { pid: 0, startedAt: SLEEP_START, force: false },
+    { pid: -1, startedAt: SLEEP_START, force: false },
+    { pid: 800, startedAt: 1700000000000, force: false },
+    { pid: 800, startedAt: '2026-11-17T10:00:00Z', force: false },
+    { pid: 800, startedAt: SLEEP_START, force: 'yes' },
+    { pid: 800, startedAt: SLEEP_START, force: false, signal: 'SIGKILL' }
+  ]
+  for (const input of bad) {
+    await assert.rejects(
+      quit(worker, input as Record<string, unknown>),
+      (error: unknown) => (error as { code?: string }).code === 'invalid_params'
+    )
+  }
+  assert.deepEqual(system.calls.identify, [])
+  assert.deepEqual(system.calls.kills, [])
+  await worker.deactivate()
+})
+
+test('a refused status bar update is sent again with the next reading', async () => {
+  const { worker, host, time } = await setup({ refuseStatusBar: true })
+  await time.advance(5000)
+  const calls = statusCalls(host)
+  assert.deepEqual(calls.slice(0, 2), [
+    { id: 'os-vitals', visible: true },
+    { id: 'os-vitals', visible: true }
+  ])
+  assert.ok(worker.logs.some((line) => line.includes('could not update its status bar item')))
   await worker.deactivate()
 })
 

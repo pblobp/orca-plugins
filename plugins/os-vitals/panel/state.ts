@@ -5,6 +5,8 @@ import type {
   MemoryReading,
   ProcessPage,
   ProcessQuery,
+  QuitInput,
+  QuitResult,
   Sample
 } from '../src/protocol.ts'
 
@@ -22,6 +24,7 @@ export type PanelActions = {
   showProcesses(): void
   queryChanged(): void
   requestDetail(pid: number): Promise<DetailResult>
+  requestQuit(input: QuitInput): Promise<QuitResult>
 }
 
 export type View = {

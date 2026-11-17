@@ -78,6 +78,7 @@ export function nodeOsProvider(source: OsSource, platform: string): Provider {
     memory: async () => (hasMemory ? osMemory(source) : null),
     processes: async () => null,
     processDetail: async () => null,
+    identify: async () => null,
     dispose() {}
   }
 }

@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process'
 import { parseCoreKinds } from '../parse/ioreg-cpus.ts'
 import { macMemory } from '../parse/mac-memory.ts'
-import { parseDetail, parsePs } from '../parse/ps.ts'
+import { parseDetail, parseIdentity, parsePs } from '../parse/ps.ts'
 import type { CoreKind } from '../protocol.ts'
 import { nodeOsProvider, type OsSource } from './fallback.ts'
 import { sectionGuard, type Provider } from './types.ts'
@@ -39,6 +39,10 @@ export const IOREG_CPU_ARGS: readonly string[] = ['-p', 'IODeviceTree', '-c', 'I
 
 export function detailArgs(pid: number): string[] {
   return ['-p', String(pid), ...PS_COLUMNS, '-o', 'command=']
+}
+
+export function identityArgs(pid: number): string[] {
+  return ['-p', String(pid), '-o', 'lstart=', '-o', 'uid=', '-o', 'comm=']
 }
 
 export function threadArgs(pid: number): string[] {
@@ -148,6 +152,18 @@ export function darwinProvider(source: OsSource, commands: DarwinCommands): Prov
       } catch {
         return null
       }
+    },
+    async identify(pid) {
+      let text: string
+      try {
+        text = await commands.ps(identityArgs(pid))
+      } catch (error) {
+        if (error && typeof error === 'object' && 'code' in error && error.code === 1) return null
+        throw error
+      }
+      const identity = parseIdentity(text)
+      if (!identity) throw new Error(`ps gave no identity for pid ${pid}`)
+      return identity
     },
     dispose() {
       commands.dispose()

@@ -39,6 +39,7 @@ const PROCESSES: RawProcess[] = [
     rss: 1024,
     cpuTime: 1,
     startedAt: 1,
+    start: 'Sat Nov 14 20:37:20 2026',
     user: 'root',
     comm: '/sbin/launchd'
   }

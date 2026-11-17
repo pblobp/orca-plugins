@@ -794,6 +794,102 @@ a:focus-visible {
   overflow-wrap: anywhere;
 }
 
+.vt-danger {
+  border-color: color-mix(in srgb, var(--orca-destructive) 45%, transparent);
+  color: var(--orca-destructive);
+  font-weight: 600;
+}
+
+.vt-danger:hover {
+  background: color-mix(in srgb, var(--orca-destructive) 12%, var(--orca-card));
+  color: var(--orca-destructive);
+}
+
+.vt-danger-fill,
+.vt-danger-fill:hover {
+  border-color: var(--orca-destructive);
+  background: var(--orca-destructive);
+  color: var(--orca-destructive-foreground);
+  font-weight: 600;
+}
+
+.vt-quit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.vt-quit-status {
+  margin: 0;
+  color: var(--orca-card-foreground);
+  font-size: 12px;
+}
+
+.vt-list-notice {
+  margin: 0 12px 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--orca-border);
+  border-radius: calc(var(--vt-radius) - 2px);
+  background: var(--orca-card);
+  color: var(--orca-card-foreground);
+  font-size: 12px;
+}
+
+.vt-dialog {
+  width: calc(100% - 24px);
+  max-width: 420px;
+  padding: 16px;
+  border: 1px solid var(--orca-border);
+  border-radius: calc(var(--vt-radius) + 4px);
+  background: var(--orca-popover);
+  color: var(--orca-popover-foreground);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+
+.vt-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.vt-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+:root.light .vt-dialog::backdrop {
+  background: rgba(24, 24, 27, 0.4);
+}
+
+.vt-dialog-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.vt-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.vt-dialog-text {
+  margin: 0;
+  color: var(--vt-fg2);
+}
+
+.vt-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.vt-dialog-button {
+  height: 30px;
+  padding: 0 14px;
+}
+
 @media (max-width: 359px) {
   .vt-memlegend {
     grid-template-columns: minmax(0, 1fr);

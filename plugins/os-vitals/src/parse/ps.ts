@@ -6,8 +6,16 @@ export type RawProcess = {
   rss: number
   cpuTime: number
   startedAt: number
+  start: string
   user: string
   comm: string
+}
+
+export type Identity = {
+  start: string
+  uid: number
+  path: string
+  name: string
 }
 
 export type RawDetail = RawProcess & {
@@ -31,7 +39,16 @@ const MONTHS: Record<string, number> = {
 }
 
 const LINE =
-  /^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d.]+)\s+(\d+)\s+(\S+)\s+([A-Z][a-z]{2}\s+[A-Z][a-z]{2}\s+\d{1,2}\s+\d{1,2}:\d{2}:\d{2}\s+\d{4})\s+(\S+)\s+(\S.*?)\s*$/
+  /^\s*(\d+)\s+(\d+)\s+(\d+)\s+([\d.]+)\s+(\d+)\s+(\S+)\s+([A-Z][a-z]{2}\s+[A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}\s+\d{4})\s+(\S+)\s+(\S.*?)\s*$/
+
+const LSTART = '[A-Z][a-z]{2}\\s+[A-Z][a-z]{2}\\s+\\d{1,2}\\s+\\d{2}:\\d{2}:\\d{2}\\s+\\d{4}'
+const IDENTITY = new RegExp(`^\\s*(${LSTART})\\s+(\\d+)\\s+(\\S.*?)\\s*$`)
+
+export const START_TOKEN = /^[A-Z][a-z]{2} [A-Z][a-z]{2} \d{1,2} \d{2}:\d{2}:\d{2} \d{4}$/
+
+export function normalizeStart(text: string): string {
+  return text.trim().split(/\s+/).join(' ')
+}
 
 export function parseCpuTime(text: string): number | null {
   const match = /^(?:(\d+)-)?(\d+(?::\d+){0,2}(?:\.\d+)?)$/.exec(text.trim())
@@ -77,6 +94,7 @@ export function parsePsLine(line: string): RawProcess | null {
     rss: Number(match[5]) * 1024,
     cpuTime,
     startedAt,
+    start: normalizeStart(match[7]),
     user: match[8],
     comm: match[9]
   }
@@ -105,5 +123,17 @@ export function parseDetail(text: string, threadsText: string | null): RawDetail
     ...parsed,
     command: parsed.comm,
     threads: threadsText === null ? null : countThreads(threadsText)
+  }
+}
+
+export function parseIdentity(text: string): Identity | null {
+  const line = text.split('\n').find((entry) => entry.trim() !== '')
+  const match = line ? IDENTITY.exec(line) : null
+  if (!match || parseLstart(match[1]) === null) return null
+  return {
+    start: normalizeStart(match[1]),
+    uid: Number(match[2]),
+    path: match[3],
+    name: processName(match[3])
   }
 }

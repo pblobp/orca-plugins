@@ -40,6 +40,7 @@ export type StatusBarUpdate = {
 export type StatusBar = {
   applyVisibility(mode: StatusBarMode): void
   show(mode: StatusBarMode, input: StatusInput, force?: boolean): void
+  failed(params: StatusBarUpdate): void
 }
 
 export function statusView(mode: StatusBarMode, input: StatusInput): StatusView | null {
@@ -65,13 +66,25 @@ export function createStatusBar(deps: {
 }): StatusBar {
   let lastSent: StatusView | null = null
   let lastSentAt = Number.NEGATIVE_INFINITY
+  let visibility: boolean | null = null
+  let visibilityPending = false
   return {
     applyVisibility(mode) {
       const visible = mode !== 'hidden'
       if (!visible) lastSent = null
+      visibility = visible
+      visibilityPending = false
       deps.update({ id: STATUS_BAR_ID, visible })
     },
+    failed(params) {
+      if (params.visible !== undefined) visibilityPending = true
+      if (params.text !== undefined) lastSent = null
+    },
     show(mode, input, force = false) {
+      if (visibilityPending && visibility !== null) {
+        visibilityPending = false
+        deps.update({ id: STATUS_BAR_ID, visible: visibility })
+      }
       const view = statusView(mode, input)
       if (!view) return
       if (lastSent && sameView(view, lastSent)) return
