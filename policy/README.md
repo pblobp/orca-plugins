@@ -7,7 +7,7 @@ else. A plugin with no policy file fails the check, even a theme with no code; g
 The file lives outside the plugin folder on purpose: it is not shipped to users, and changing it
 shows up in review as its own file.
 
-No plugin exists yet, so there is no policy file yet.
+[`os-vitals.json`](os-vitals.json) is a working example, with one `dynamicPrograms` exception.
 
 ## Format
 

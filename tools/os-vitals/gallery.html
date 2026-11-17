@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>OS Vitals gallery</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 16px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 16px;
+        background: #6b6b73;
+        font:
+          12px system-ui,
+          sans-serif;
+      }
+      figure {
+        margin: 0;
+      }
+      figcaption {
+        margin-bottom: 4px;
+        color: #ffffff;
+      }
+      iframe {
+        display: block;
+        border: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <figure>
+      <figcaption>dark, 220 px</figcaption>
+      <iframe title="dark 220" src="harness.html?theme=dark" width="220" height="560"></iframe>
+    </figure>
+    <figure>
+      <figcaption>dark, 320 px</figcaption>
+      <iframe title="dark 320" src="harness.html?theme=dark" width="320" height="560"></iframe>
+    </figure>
+    <figure>
+      <figcaption>dark, 400 px</figcaption>
+      <iframe title="dark 400" src="harness.html?theme=dark" width="400" height="560"></iframe>
+    </figure>
+    <figure>
+      <figcaption>light, 220 px</figcaption>
+      <iframe title="light 220" src="harness.html?theme=light" width="220" height="560"></iframe>
+    </figure>
+    <figure>
+      <figcaption>light, 320 px</figcaption>
+      <iframe title="light 320" src="harness.html?theme=light" width="320" height="560"></iframe>
+    </figure>
+    <figure>
+      <figcaption>light, 400 px</figcaption>
+      <iframe title="light 400" src="harness.html?theme=light" width="400" height="560"></iframe>
+    </figure>
+    <figure>
+      <figcaption>loading</figcaption>
+      <iframe title="loading" src="harness.html?scenario=loading" width="300" height="240"></iframe>
+    </figure>
+    <figure>
+      <figcaption>worker did not answer</figcaption>
+      <iframe title="error" src="harness.html?scenario=error" width="300" height="240"></iframe>
+    </figure>
+    <figure>
+      <figcaption>unsupported</figcaption>
+      <iframe
+        title="unsupported"
+        src="harness.html?scenario=unsupported&theme=light"
+        width="300"
+        height="240"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Windows (no load average)</figcaption>
+      <iframe
+        title="windows"
+        src="harness.html?scenario=windows&theme=light"
+        width="300"
+        height="560"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>first poll, no history yet</figcaption>
+      <iframe title="empty" src="harness.html?scenario=empty" width="300" height="560"></iframe>
+    </figure>
+  </body>
+</html>

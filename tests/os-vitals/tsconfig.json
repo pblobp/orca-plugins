@@ -1,0 +1,12 @@
+{
+  "extends": "../../plugins/os-vitals/.orca/types/tsconfig.json",
+  "compilerOptions": {
+    "typeRoots": ["../../plugins/os-vitals/.orca/types", "../../node_modules/@types"],
+    "types": ["orca", "orca-host", "orca-frame", "orca-worker", "orca-services", "node"],
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true
+  },
+  "include": ["."]
+}
