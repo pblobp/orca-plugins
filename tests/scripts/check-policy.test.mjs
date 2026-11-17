@@ -96,6 +96,13 @@ describe('code rules', () => {
     assert.deepEqual(check("import { test } from 'orca/testing'"), [])
   })
 
+  test('URL schemes in strings are read the way a browser reads them', () => {
+    assert.ok(check("export const u = 'java\\tscript:go()'").length > 0)
+    assert.ok(check("export const u = '\\u0001javascript:go()'").length > 0)
+    assert.ok(check("export const u = 'data:text/html,hi'").length > 0)
+    assert.deepEqual(check("export const label = 'Data: 5 GB'"), [])
+  })
+
   test('a program on the allowlist must be a literal at the call site', () => {
     assert.ok(
       check("import { spawn } from 'node:child_process'\nconst PS = '/bin/ps'\nspawn(PS, [])")
@@ -224,6 +231,95 @@ describe('html panels', () => {
     assert.equal(check('<a href="javascript:go()">Go</a>').length, 1)
     assert.equal(check('<script src="https://example.com/x.js"></script>').length, 1)
     assert.equal(check('<script src="../../outside.js"></script>').length, 1)
+  })
+})
+
+describe('html script elements, found the way a browser finds them', () => {
+  const policy = emptyPolicy()
+  const messages = (text) =>
+    checkHtml(text, { file: 'panel/index.html', policy }).problems.map(
+      (p) => `${p.line}: ${p.message}`
+    )
+  const FETCH = 'fetch uses the network, and the policy lists no hosts'
+  const ONCLICK = 'the onclick attribute runs or embeds code'
+  const UNCLOSED = 'a <script> element is not closed'
+
+  test('an end tag with a space before > closes the element', () => {
+    const html = '<script>\nfetch("x")\n</script >\n<button onclick="go()">Go</button>\n'
+    assert.deepEqual(messages(html), [`2: ${FETCH}`, `4: ${ONCLICK}`])
+  })
+
+  test('tag names are matched in any case', () => {
+    const html = '<SCRIPT>\nfetch("x")\n</SCRIPT>\n<button onclick="go()">Go</button>\n'
+    assert.deepEqual(messages(html), [`2: ${FETCH}`, `4: ${ONCLICK}`])
+  })
+
+  test('an end tag with attributes closes the element', () => {
+    const html = '<script>\nfetch("x")\n</script foo="bar">\n<button onclick="go()">Go</button>\n'
+    assert.deepEqual(messages(html), [`2: ${FETCH}`, `4: ${ONCLICK}`])
+  })
+
+  test('an end tag broken across lines closes the element', () => {
+    assert.deepEqual(messages('<script>\nfetch("x")\n</script\n>\n<p>after</p>\n'), [`2: ${FETCH}`])
+    assert.deepEqual(messages('<script>\nfetch("x")\n</script\t\n bar>\n<p>after</p>\n'), [
+      `2: ${FETCH}`
+    ])
+  })
+
+  test('an unclosed script element runs to the end of the file, and is a problem itself', () => {
+    assert.deepEqual(messages('<p>a</p>\n<script>\nfetch("x")\n'), [
+      `2: ${UNCLOSED}`,
+      `3: ${FETCH}`
+    ])
+  })
+
+  test('elements whose names only start with script are not scripts', () => {
+    assert.deepEqual(
+      messages('<scripty>fetch("x")</scripty>\n<script-like>eval("1")</script-like>\n'),
+      []
+    )
+  })
+
+  test('an unquoted src is read like a quoted one', () => {
+    const html =
+      '<script src=https://example.com/x.js></script>\n<script type=module src=./main.ts></script>\n'
+    assert.deepEqual(messages(html), [
+      '1: script https://example.com/x.js is not a file inside the plugin'
+    ])
+  })
+
+  test('a > inside a quoted attribute value does not end the tag', () => {
+    const html =
+      '<script data-x=">" src="https://example.com/x.js"></script>\n<a title=">" onclick="go()">x</a>\n'
+    assert.deepEqual(messages(html), [
+      '1: script https://example.com/x.js is not a file inside the plugin',
+      `2: ${ONCLICK}`
+    ])
+  })
+
+  test('a comment opener inside a script element is rejected', () => {
+    const html = '<script><!-- <script></script> fetch("x") --></script>\n'
+    assert.ok(messages(html).includes('1: "<!--" inside a script element changes where it ends'))
+  })
+
+  test('script sources and URL attributes are read after decoding, like a browser', () => {
+    const html = [
+      '<a href="&#106;avascript:go()">a</a>',
+      '<a href="java&#9;script:go()">b</a>',
+      '<a href=" JAVASCRIPT:go()">c</a>',
+      '<script src="\\\\example.com/x.js"></script>',
+      '<svg><script href="https://example.com/x.js"></script></svg>',
+      '<iframe src="data:text/html,hi"></iframe>',
+      '<img src="logo.png">'
+    ].join('\n')
+    assert.deepEqual(messages(html), [
+      '1: javascript: URLs can carry code',
+      '2: javascript: URLs can carry code',
+      '3: javascript: URLs can carry code',
+      '4: script \\\\example.com/x.js is not a file inside the plugin',
+      '5: script https://example.com/x.js is not a file inside the plugin',
+      '6: data: URLs can carry code'
+    ])
   })
 })
 
