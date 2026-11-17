@@ -1,6 +1,6 @@
 {
   "modules": ["node:child_process", "node:fs", "node:os", "node:path", "node:timers", "node:url"],
-  "programs": [],
+  "programs": ["/bin/ps", "/usr/bin/vm_stat", "/usr/sbin/sysctl", "/usr/sbin/ioreg"],
   "dynamicPrograms": [
     {
       "file": "src/cli.ts",

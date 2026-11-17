@@ -4,7 +4,9 @@ import { locateCli, runOrcaCli, type CliResult } from './cli.ts'
 import { realClock, type Clock } from './clock.ts'
 import { openOwnPanel, type RunCli } from './open-panel.ts'
 import { createProvider, type Provider } from './platform/index.ts'
-import type { HelloResult, PollInput, PollResult, Sample } from './protocol.ts'
+import { processName } from './parse/ps.ts'
+import { queryProcesses, readQuery } from './processes.ts'
+import type { DetailResult, HelloResult, PollInput, PollResult, Sample } from './protocol.ts'
 import { createSampler, type SamplerConfig } from './sampler.ts'
 import {
   backgroundEnabled,
@@ -12,7 +14,8 @@ import {
   readSettings,
   type VitalsSettings
 } from './settings.ts'
-import { createStatusBar, loadText, percentText, type StatusBarUpdate } from './status.ts'
+import { loadAverage, percent } from './format.ts'
+import { createStatusBar, memoryPercent, type StatusBarUpdate } from './status.ts'
 
 export const OPEN_COMMAND = 'os-vitals.open'
 export const CORE_HISTORY_LIMIT = 120
@@ -45,8 +48,26 @@ function readInput(input: unknown): PollInput {
     out.since = raw.since
   }
   if (typeof raw.run === 'string' && raw.run.length <= 64) out.run = raw.run
-  if (typeof raw.view === 'string' && raw.view.length <= 32) out.view = raw.view
+  if (raw.view === 'overview' || raw.view === 'processes') out.view = raw.view
+  const query = readQuery(raw.processes)
+  if (query) out.processes = query
   return out
+}
+
+export function readPid(input: unknown): number | null {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null
+  const pid = (input as Record<string, unknown>).pid
+  return typeof pid === 'number' && Number.isInteger(pid) && pid > 0 && pid <= 0x7fffffff
+    ? pid
+    : null
+}
+
+function commandName(command: string): string {
+  return processName(command.trim().split(/\s+/)[0] ?? '') || command
+}
+
+function invalid(text: string): Error {
+  return Object.assign(new Error(text), { code: 'invalid_params' })
 }
 
 function trimCores(samples: Sample[]): Sample[] {
@@ -76,6 +97,7 @@ export async function startVitals(orca: OrcaWorkerApi, deps: VitalsDeps): Promis
   }
 
   let settings = await loadSettings()
+  await provider.init()
 
   const updateStatusBar = (params: StatusBarUpdate): void => {
     orca.host.call('statusBar.update', params).catch((error: unknown) => {
@@ -88,7 +110,7 @@ export async function startVitals(orca: OrcaWorkerApi, deps: VitalsDeps): Promis
     if (!sample) return
     statusBar.show(
       settings.statusBar,
-      { cpu: sample.total, memory: null, load: provider.load() },
+      { cpu: sample.total, memory: sample.memory, load: provider.load() },
       force
     )
   }
@@ -98,7 +120,7 @@ export async function startVitals(orca: OrcaWorkerApi, deps: VitalsDeps): Promis
       clock,
       provider,
       onSample: (sample) => showStatus(sample, false),
-      onError: (error) => orca.log(`OS Vitals could not read the CPU: ${message(error)}`)
+      onError: (error) => orca.log(`OS Vitals could not read the system: ${message(error)}`)
     },
     samplerConfig(settings)
   )
@@ -140,20 +162,53 @@ export async function startVitals(orca: OrcaWorkerApi, deps: VitalsDeps): Promis
   )
 
   subscriptions.push(
-    orca.panels.handle('os-vitals.poll', (rawInput): PollResult => {
+    orca.panels.handle('os-vitals.poll', async (rawInput): Promise<PollResult> => {
       const input = readInput(rawInput)
-      sampler.notePoll()
+      const query = input.processes ?? null
+      await sampler.notePoll({ view: input.view ?? 'overview', processes: query !== null })
       const reset = input.run !== run
       const since = reset ? 0 : (input.since ?? 0)
       const samples = sampler.since(since)
+      const snapshot = sampler.processes()
       return {
         run,
         reset,
         seq: sampler.seq(),
         samples: reset ? trimCores(samples) : samples,
         current: { load: provider.load(), uptime: provider.uptime() },
+        memory: sampler.memory(),
+        processes: query && snapshot ? queryProcesses(snapshot, query) : null,
         intervalMs: settings.refreshSeconds * 1000,
         historyMs: settings.historyMinutes * 60 * 1000
+      }
+    })
+  )
+
+  subscriptions.push(
+    orca.panels.handle('os-vitals.process.detail', async (rawInput): Promise<DetailResult> => {
+      const pid = readPid(rawInput)
+      if (pid === null) throw invalid('pid must be a positive whole number')
+      const raw = await provider.processDetail(pid)
+      if (!raw || raw.pid !== pid) return { found: false }
+      const rows = sampler.processes()?.rows ?? []
+      const row = rows.find((entry) => entry.pid === pid && entry.startedAt === raw.startedAt)
+      const parent = rows.find((entry) => entry.pid === raw.ppid)
+      return {
+        found: true,
+        process: {
+          pid,
+          ppid: raw.ppid,
+          parentName: parent ? parent.name : null,
+          uid: raw.uid,
+          user: raw.user,
+          name: row ? row.name : commandName(raw.command),
+          command: raw.command,
+          startedAt: raw.startedAt,
+          cpuTime: raw.cpuTime,
+          memory: raw.rss,
+          cpu: row ? row.cpu : null,
+          threads: raw.threads
+        }
       }
     })
   )
@@ -173,8 +228,10 @@ export async function startVitals(orca: OrcaWorkerApi, deps: VitalsDeps): Promis
   const notifyNumbers = async (reason: string): Promise<void> => {
     const latest = sampler.latest()
     const load = provider.load()
-    const parts = [`CPU ${percentText(latest ? latest.total : null)}`]
-    if (load) parts.push(`Load ${loadText(load)}`)
+    const parts = [`CPU ${percent(latest ? latest.total : null)}`]
+    const memory = sampler.memory()
+    if (memory) parts.push(`MEM ${percent(memoryPercent(memory))}`)
+    if (load) parts.push(`Load ${loadAverage(load)}`)
     orca.log(`OS Vitals could not open its panel: ${reason}`)
     try {
       await orca.host.call('notifications.show', { title: 'OS Vitals', body: parts.join(' · ') })
@@ -183,18 +240,20 @@ export async function startVitals(orca: OrcaWorkerApi, deps: VitalsDeps): Promis
     }
   }
 
-  subscriptions.push(
-    orca.commands.register(OPEN_COMMAND, async () => {
-      const program = deps.locateCli()
-      const result = await openOwnPanel(program ? cliRunner(program) : null, deps.workerFile)
-      if (!result.opened) await notifyNumbers(result.reason)
-    })
-  )
+  const openPanel = async () => {
+    const program = deps.locateCli()
+    const result = await openOwnPanel(program ? cliRunner(program) : null, deps.workerFile)
+    if (!result.opened) await notifyNumbers(result.reason)
+    return result
+  }
+
+  subscriptions.push(orca.commands.register(OPEN_COMMAND, openPanel))
 
   return {
     stop() {
       stopped = true
       sampler.stop()
+      provider.dispose()
       for (const controller of controllers) controller.abort()
       controllers.clear()
       for (const subscription of subscriptions.splice(0)) subscription.dispose()

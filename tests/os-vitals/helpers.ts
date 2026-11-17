@@ -1,16 +1,25 @@
+import { readFileSync } from 'node:fs'
 import type { Clock, TimerHandle } from '../../plugins/os-vitals/src/clock.ts'
 import type { CpuTimes } from '../../plugins/os-vitals/src/cpu.ts'
+import type { RawProcess } from '../../plugins/os-vitals/src/parse/ps.ts'
 import { nodeOsProvider } from '../../plugins/os-vitals/src/platform/fallback.ts'
 import type { Provider } from '../../plugins/os-vitals/src/platform/types.ts'
+import type { MemoryReading } from '../../plugins/os-vitals/src/protocol.ts'
 
 type Timer = { at: number; callback: () => void }
+
+export const settle = () => new Promise<void>((resolve) => setImmediate(resolve))
+
+export function fixture(path: string): string {
+  return readFileSync(new URL(`./fixtures/${path}`, import.meta.url), 'utf8')
+}
 
 export type FakeClock = {
   clock: Clock
   now(): number
   pending(): number
   nextDelay(): number | null
-  advance(ms: number): void
+  advance(ms: number): Promise<void>
 }
 
 export function fakeClock(start = 1_700_000_000_000): FakeClock {
@@ -39,7 +48,7 @@ export function fakeClock(start = 1_700_000_000_000): FakeClock {
       }
       return soonest === null ? null : soonest - now
     },
-    advance(ms) {
+    async advance(ms) {
       const end = now + ms
       for (;;) {
         let due: [number, Timer] | null = null
@@ -50,20 +59,27 @@ export function fakeClock(start = 1_700_000_000_000): FakeClock {
         timers.delete(due[0])
         now = due[1].at
         due[1].callback()
+        await settle()
+        await settle()
       }
       now = end
+      await settle()
     }
   }
 }
 
-export type FakeCpus = {
+export type FakeSystem = {
   provider: Provider
   reads(): number
+  memoryReads(): number
+  processReads(): number
   setStep(step: Partial<CpuTimes>): void
+  setMemory(memory: MemoryReading | null): void
+  setProcesses(list: RawProcess[] | null): void
   fail(error: Error | null): void
 }
 
-export function fakeCpus(cores = 2, platform = 'linux'): FakeCpus {
+export function fakeCpus(cores = 2, platform = 'linux'): FakeSystem {
   const step: CpuTimes = { user: 250, nice: 0, sys: 50, idle: 700, irq: 0 }
   const totals: CpuTimes[] = Array.from({ length: cores }, () => ({
     user: 0,
@@ -73,8 +89,12 @@ export function fakeCpus(cores = 2, platform = 'linux'): FakeCpus {
     irq: 0
   }))
   let reads = 0
+  let memoryReads = 0
+  let processReads = 0
   let failure: Error | null = null
-  const provider = nodeOsProvider(
+  let memory: MemoryReading | null = null
+  let processes: RawProcess[] | null = null
+  const base = nodeOsProvider(
     {
       cpus() {
         if (failure) throw failure
@@ -90,21 +110,43 @@ export function fakeCpus(cores = 2, platform = 'linux'): FakeCpus {
       },
       loadavg: () => [0.5, 0.25, 0.125],
       uptime: () => 3600,
-      totalmem: () => 8 * 1024 ** 3
+      totalmem: () => 8 * 1024 ** 3,
+      freemem: () => 2 * 1024 ** 3
     },
     platform
   )
   return {
     provider: {
-      ...provider,
+      ...base,
       cpuTimes() {
         if (failure) throw failure
-        return provider.cpuTimes()
+        return base.cpuTimes()
+      },
+      sections: () => ({
+        ...base.sections(),
+        memory: memory !== null,
+        processes: processes !== null
+      }),
+      async memory() {
+        memoryReads += 1
+        return memory
+      },
+      async processes() {
+        processReads += 1
+        return processes
       }
     },
     reads: () => reads,
+    memoryReads: () => memoryReads,
+    processReads: () => processReads,
     setStep(next) {
       Object.assign(step, next)
+    },
+    setMemory(next) {
+      memory = next
+    },
+    setProcesses(next) {
+      processes = next
     },
     fail(error) {
       failure = error

@@ -1,16 +1,34 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import type { MemoryReading } from '../../plugins/os-vitals/src/protocol.ts'
 import {
   createStatusBar,
+  memoryLine,
+  memoryPercent,
   statusView,
   type StatusBarUpdate,
   type StatusInput
 } from '../../plugins/os-vitals/src/status.ts'
 import { fakeClock } from './helpers.ts'
 
+const GB = 1024 ** 3
+
+const memoryAt = (percent: number, pressure: MemoryReading['pressure'] = null): MemoryReading => ({
+  total: 48 * GB,
+  used: (48 * GB * percent) / 100,
+  app: null,
+  wired: null,
+  compressed: null,
+  cached: null,
+  free: 48 * GB * (1 - percent / 100),
+  swapUsed: null,
+  swapTotal: null,
+  pressure
+})
+
 const input = (cpu: number | null, memory: number | null = null): StatusInput => ({
   cpu,
-  memory,
+  memory: memory === null ? null : memoryAt(memory),
   load: [1.5, 1.25, 1]
 })
 
@@ -24,9 +42,21 @@ test('the text follows the status bar setting', () => {
   assert.equal(statusView('hidden', input(23, 61)), null)
 })
 
-test('the tooltip names the plugin and the load', () => {
+test('the tooltip names the plugin, the load and the memory', () => {
   assert.equal(statusView('cpu', input(5))?.tooltip, 'OS Vitals\nLoad 1.50 · 1.25 · 1.00')
   assert.equal(statusView('cpu', { cpu: 5, memory: null, load: null })?.tooltip, 'OS Vitals')
+  assert.equal(
+    statusView('cpu', { cpu: 5, memory: memoryAt(51.5, 'normal'), load: null })?.tooltip,
+    'OS Vitals\nMemory 24.7 of 48 GB, pressure normal'
+  )
+})
+
+test('memory percent and line come from used and total', () => {
+  assert.equal(memoryPercent(memoryAt(25)), 25)
+  assert.equal(memoryPercent(null), null)
+  assert.equal(memoryPercent({ ...memoryAt(25), total: 0 }), null)
+  assert.equal(memoryLine(memoryAt(50)), 'Memory 24 of 48 GB')
+  assert.equal(memoryLine(memoryAt(50, 'critical')), 'Memory 24 of 48 GB, pressure critical')
 })
 
 function bar() {
@@ -36,18 +66,18 @@ function bar() {
   return { time, updates, statusBar }
 }
 
-test('updates are sent at most every 5 s', () => {
+test('updates are sent at most every 5 s', async () => {
   const { time, updates, statusBar } = bar()
   statusBar.show('cpu', input(10))
-  time.advance(2000)
+  await time.advance(2000)
   statusBar.show('cpu', input(20))
-  time.advance(2999)
+  await time.advance(2999)
   statusBar.show('cpu', input(30))
   assert.deepEqual(
     updates.map((update) => update.text),
     ['CPU 10%']
   )
-  time.advance(1)
+  await time.advance(1)
   statusBar.show('cpu', input(30))
   assert.deepEqual(
     updates.map((update) => update.text),
@@ -55,10 +85,10 @@ test('updates are sent at most every 5 s', () => {
   )
 })
 
-test('an unchanged reading sends nothing, and force skips the wait', () => {
+test('an unchanged reading sends nothing, and force skips the wait', async () => {
   const { time, updates, statusBar } = bar()
   statusBar.show('cpu', input(10.2))
-  time.advance(10000)
+  await time.advance(10000)
   statusBar.show('cpu', input(9.8))
   assert.equal(updates.length, 1)
   statusBar.show('cpu-memory', input(40), true)

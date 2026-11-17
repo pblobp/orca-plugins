@@ -1,0 +1,12 @@
+    1     0     0   0.1  26512  20:32.51 Sat Nov 14 20:37:20 2026     root             /sbin/launchd
+  325     1     0   3.7  60464   9:06.76 Sat Nov 14 20:37:35 2026     root             /usr/libexec/logd
+  397     1    88  32.2 143104 204:47.11 Sat Nov 14 20:37:36 2026     _windowserver    /System/Library/PrivateFrameworks/SkyLight.framework/Resources/WindowServer
+  401     1   501   1.9  80960   9:54.86 Sat Nov 14 20:37:36 2026     user             /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow
+  643     1   501   3.2  77840   3:07.00 Sat Nov 14 20:37:39 2026     user             /System/Library/CoreServices/Finder.app/Contents/MacOS/Finder
+  879     1   501   0.0  11840   0:26.35 Sat Nov 14 20:37:44 2026     user             cloudphotod
+  990     1   502   0.0   1024   0:00.10 Mon Nov  2 09:05:07 2026     502              /usr/libexec/example-agent
+ 2291 36701   501  12.5 397312   1:03.90 Sun Nov 15 08:01:02 2026     user             /Applications/Example App.app/Contents/Frameworks/Example App Helper (Renderer).app/Contents/MacOS/Example App Helper (Renderer)
+25251     1   501   0.0 110736   4:47.68 Mon Nov 16 12:56:29 2026     user             /Users/user/.nvm/versions/node/v24.22.1/bin/node
+36701     1   501   6.2 383328  13:37.26 Mon Nov 16 14:27:32 2026     user             /Applications/Orca.app/Contents/MacOS/Orca
+36730 36701   501   3.2 107776  11:23.23 Mon Nov 16 14:27:34 2026     user             /Applications/Orca.app/Contents/Frameworks/Orca Helper.app/Contents/MacOS/Orca Helper
+41000     1   501

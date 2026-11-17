@@ -1,5 +1,5 @@
 import { copyTimes, type CpuTimes } from '../cpu.ts'
-import type { LoadAverage, Sections } from '../protocol.ts'
+import type { LoadAverage, MemoryReading, Sections } from '../protocol.ts'
 import type { Provider } from './types.ts'
 
 export type OsSource = {
@@ -7,9 +7,10 @@ export type OsSource = {
   loadavg(): number[]
   uptime(): number
   totalmem(): number
+  freemem(): number
 }
 
-function safely<T>(read: () => T, fallback: T): T {
+export function safely<T>(read: () => T, fallback: T): T {
   try {
     return read()
   } catch {
@@ -17,11 +18,33 @@ function safely<T>(read: () => T, fallback: T): T {
   }
 }
 
+export function osMemory(source: OsSource): MemoryReading | null {
+  const total = safely(() => source.totalmem(), 0)
+  const free = safely(() => source.freemem(), Number.NaN)
+  if (!(total > 0) || !Number.isFinite(free) || free < 0) return null
+  const clamped = Math.min(total, free)
+  return {
+    total,
+    used: total - clamped,
+    app: null,
+    wired: null,
+    compressed: null,
+    cached: null,
+    free: clamped,
+    swapUsed: null,
+    swapTotal: null,
+    pressure: null
+  }
+}
+
 export function nodeOsProvider(source: OsSource, platform: string): Provider {
   const hasLoad = platform !== 'win32'
+  const hasMemory = platform !== 'linux' && platform !== 'darwin'
   const cpuList = () => safely(() => source.cpus(), [])
+  const hasCpu = cpuList().length > 0
   return {
     platform,
+    init: async () => {},
     cpuModel() {
       const model = cpuList()[0]?.model?.trim()
       return model ? model.replace(/\s+/g, ' ') : null
@@ -40,11 +63,10 @@ export function nodeOsProvider(source: OsSource, platform: string): Provider {
     uptime: () => safely(() => source.uptime(), 0),
     totalMemory: () => safely(() => source.totalmem(), 0),
     sections(): Sections {
-      const cpu = cpuList().length > 0
       return {
-        cpu,
+        cpu: hasCpu,
         load: hasLoad,
-        memory: false,
+        memory: hasMemory,
         processes: false,
         network: false,
         disk: false,
@@ -52,6 +74,10 @@ export function nodeOsProvider(source: OsSource, platform: string): Provider {
         battery: false,
         energy: false
       }
-    }
+    },
+    memory: async () => (hasMemory ? osMemory(source) : null),
+    processes: async () => null,
+    processDetail: async () => null,
+    dispose() {}
   }
 }

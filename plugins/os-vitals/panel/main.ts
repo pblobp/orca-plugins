@@ -1,14 +1,17 @@
 import type {
   Current,
+  DetailResult,
   HelloResult,
+  MemoryReading,
   PollInput,
   PollResult,
+  ProcessPage,
   Sample,
   ViewName
 } from '../src/protocol.ts'
 import { el, icon, PAUSE_ICON, PLAY_ICON, setAttr, setText } from './dom.ts'
 import { interval } from './format.ts'
-import type { PanelModel, View } from './state.ts'
+import type { PanelActions, PanelModel, View } from './state.ts'
 import { createOverview } from './views/overview.ts'
 import { createProcesses } from './views/processes.ts'
 
@@ -26,6 +29,8 @@ type PanelState = {
   seq: number
   samples: Sample[]
   current: Current | null
+  memory: MemoryReading | null
+  processes: ProcessPage | null
   intervalMs: number
   historyMs: number
   view: ViewName
@@ -42,6 +47,8 @@ const state: PanelState = {
   seq: 0,
   samples: [],
   current: null,
+  memory: null,
+  processes: null,
   intervalMs: 2000,
   historyMs: 5 * 60 * 1000,
   view: 'overview',
@@ -82,10 +89,8 @@ function initialView(hello: HelloResult): ViewName {
 function tabButton(label: string, view: ViewName): HTMLButtonElement {
   const button = el('button', { className: 'vt-tab', text: label, attrs: { type: 'button' } })
   button.addEventListener('click', () => {
-    state.view = view
-    state.viewChosen = true
-    saveView(view)
-    render()
+    if (state.view === view) return
+    showView(view)
   })
   return button
 }
@@ -115,9 +120,15 @@ const banner = el('div', { className: 'vt-banner', attrs: { role: 'status' } }, 
   bannerRetry
 ])
 const content = el('main', { className: 'vt-content' })
+const actions: PanelActions = {
+  showProcesses: () => showView('processes'),
+  queryChanged: () => requestPoll(),
+  requestDetail: (pid: number): Promise<DetailResult> =>
+    orca.plugin.request('os-vitals.process.detail', { pid }, { timeoutMs: REQUEST_TIMEOUT_MS })
+}
 const views: Record<ViewName, View> = {
-  overview: createOverview(),
-  processes: createProcesses()
+  overview: createOverview(actions),
+  processes: createProcesses(actions)
 }
 
 const stateTitle = el('h2', { className: 'vt-title' })
@@ -137,7 +148,39 @@ app.append(header, banner, content)
 
 let timer: number | undefined
 let inFlight = false
+let pollAgain = false
 let pausedIcon: boolean | null = null
+
+function showView(view: ViewName): void {
+  state.view = view
+  state.viewChosen = true
+  state.processes = null
+  saveView(view)
+  render()
+  requestPoll()
+}
+
+function requestPoll(): void {
+  if (inFlight) {
+    pollAgain = true
+    return
+  }
+  cancel()
+  void pollNow()
+}
+
+function model(): PanelModel | null {
+  if (!state.hello) return null
+  return {
+    hello: state.hello,
+    samples: state.samples,
+    current: state.current,
+    memory: state.memory,
+    processes: state.processes,
+    intervalMs: state.intervalMs,
+    historyMs: state.historyMs
+  }
+}
 
 function cancel(): void {
   if (timer !== undefined) window.clearTimeout(timer)
@@ -159,6 +202,8 @@ function merge(result: PollResult): void {
   state.run = result.run
   state.seq = result.seq
   state.current = result.current
+  state.memory = result.memory
+  state.processes = result.processes
   state.intervalMs = result.intervalMs
   state.historyMs = result.historyMs
   for (const sample of result.samples) state.samples.push(sample)
@@ -176,6 +221,9 @@ async function pollNow(): Promise<void> {
   inFlight = true
   const input: PollInput = { since: state.seq, view: state.view }
   if (state.run) input.run = state.run
+  const current = model()
+  const query = current ? views[state.view].query(current) : null
+  if (query) input.processes = query
   try {
     merge(await orca.plugin.request('os-vitals.poll', input, { timeoutMs: REQUEST_TIMEOUT_MS }))
     state.failures = 0
@@ -186,6 +234,12 @@ async function pollNow(): Promise<void> {
     inFlight = false
   }
   render()
+  if (pollAgain) {
+    pollAgain = false
+    cancel()
+    void pollNow()
+    return
+  }
   const delay =
     state.failures > 0
       ? Math.min(RETRY_MAX_MS, state.intervalMs * 2 ** state.failures)
@@ -249,6 +303,7 @@ function renderState(): void {
     setText(stateText, 'This system does not report CPU times, so OS Vitals has nothing to show.')
   }
   setAttr(stateBox, 'data-phase', state.phase)
+  content.removeAttribute('data-view')
   showOnly(stateBox)
 }
 
@@ -272,15 +327,10 @@ function render(): void {
     return
   }
   const view = views[state.view]
+  content.dataset.view = state.view
   showOnly(view.element)
-  const model: PanelModel = {
-    hello: state.hello,
-    samples: state.samples,
-    current: state.current,
-    intervalMs: state.intervalMs,
-    historyMs: state.historyMs
-  }
-  view.update(model)
+  const current = model()
+  if (current) view.update(current)
 }
 
 pauseButton.addEventListener('click', () => {
@@ -305,6 +355,11 @@ new ResizeObserver(() => {
     render()
   })
 }).observe(content)
+
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape' || state.phase !== 'ready') return
+  if (views[state.view].escape()) event.preventDefault()
+})
 
 orca.on('theme', () => render())
 

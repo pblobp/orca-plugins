@@ -3,11 +3,23 @@ import type { OrcaWorkerApi } from 'orca/worker'
 import type { CliResult } from './cli.ts'
 import type { Clock, TimerHandle } from './clock.ts'
 import type { CpuTimes } from './cpu.ts'
+import type { RawProcess } from './parse/ps.ts'
 import { nodeOsProvider } from './platform/fallback.ts'
-import type { HelloResult, PollResult } from './protocol.ts'
+import type { Provider } from './platform/types.ts'
+import type {
+  DetailResult,
+  HelloResult,
+  MemoryReading,
+  PollResult,
+  ProcessQuery
+} from './protocol.ts'
 import { startVitals, type Vitals, type VitalsDeps } from './worker.ts'
 
 type Timer = { at: number; callback: () => void }
+
+const START = 1_700_000_000_000
+const GB = 1024 ** 3
+const settle = () => new Promise<void>((resolve) => setImmediate(resolve))
 
 function fakeClock(start: number) {
   let now = start
@@ -27,7 +39,7 @@ function fakeClock(start: number) {
   return {
     clock,
     pending: () => timers.size,
-    advance(ms: number) {
+    async advance(ms: number) {
       const end = now + ms
       for (;;) {
         let due: [number, Timer] | null = null
@@ -38,26 +50,41 @@ function fakeClock(start: number) {
         timers.delete(due[0])
         now = due[1].at
         due[1].callback()
+        await settle()
+        await settle()
       }
       now = end
+      await settle()
     }
   }
 }
 
-function fakeCpus(cores: number) {
+const MEMORY: MemoryReading = {
+  total: 16 * GB,
+  used: 8 * GB,
+  app: 5 * GB,
+  wired: 2 * GB,
+  compressed: 1 * GB,
+  cached: 3 * GB,
+  free: 5 * GB,
+  swapUsed: 0,
+  swapTotal: 0,
+  pressure: 'normal'
+}
+
+function fakeSystem() {
   const step = { user: 250, nice: 0, sys: 50, idle: 700, irq: 0 }
-  const totals: CpuTimes[] = Array.from({ length: cores }, () => ({
+  const totals: CpuTimes[] = Array.from({ length: 4 }, () => ({
     user: 1000,
     nice: 0,
     sys: 1000,
     idle: 10000,
     irq: 0
   }))
-  return {
-    setStep(next: CpuTimes) {
-      Object.assign(step, next)
-    },
-    source: {
+  const calls = { processes: 0, detail: [] as number[], disposed: 0 }
+  let cpuTime = 10
+  const base = nodeOsProvider(
+    {
       cpus() {
         for (const times of totals) {
           times.user += step.user
@@ -70,7 +97,83 @@ function fakeCpus(cores: number) {
       },
       loadavg: () => [1.5, 1.25, 1],
       uptime: () => 93784,
-      totalmem: () => 16 * 1024 ** 3
+      totalmem: () => 16 * GB,
+      freemem: () => 4 * GB
+    },
+    'darwin'
+  )
+  const listing = (): RawProcess[] => {
+    cpuTime += 1
+    return [
+      {
+        pid: 1,
+        ppid: 0,
+        uid: 0,
+        pcpu: 0.1,
+        rss: 20 * 1024 ** 2,
+        cpuTime: 100,
+        startedAt: 1000,
+        user: 'root',
+        comm: '/sbin/launchd'
+      },
+      {
+        pid: 300,
+        ppid: 1,
+        uid: 501,
+        pcpu: 12,
+        rss: 2 * GB,
+        cpuTime,
+        startedAt: 2000,
+        user: 'user',
+        comm: '/Applications/Example App.app/Contents/MacOS/Example App'
+      },
+      {
+        pid: 42,
+        ppid: 300,
+        uid: 501,
+        pcpu: 3,
+        rss: 300 * 1024 ** 2,
+        cpuTime: 5,
+        startedAt: 3000,
+        user: 'user',
+        comm: 'node'
+      }
+    ]
+  }
+  const provider: Provider = {
+    ...base,
+    sections: () => ({ ...base.sections(), memory: true, processes: true }),
+    memory: async () => MEMORY,
+    async processes() {
+      calls.processes += 1
+      return listing()
+    },
+    async processDetail(pid) {
+      calls.detail.push(pid)
+      if (pid !== 42) return null
+      return {
+        pid: 42,
+        ppid: 300,
+        uid: 501,
+        pcpu: 3,
+        rss: 300 * 1024 ** 2,
+        cpuTime: 5,
+        startedAt: 3000,
+        user: 'user',
+        comm: 'node /Users/user/project/server.js --port 5173',
+        command: 'node /Users/user/project/server.js --port 5173',
+        threads: 12
+      }
+    },
+    dispose() {
+      calls.disposed += 1
+    }
+  }
+  return {
+    provider,
+    calls,
+    setStep(next: CpuTimes) {
+      Object.assign(step, next)
     }
   }
 }
@@ -79,13 +182,10 @@ type Setup = {
   worker: TestWorker
   host: MockHost
   time: ReturnType<typeof fakeClock>
-  cpus: ReturnType<typeof fakeCpus>
+  system: ReturnType<typeof fakeSystem>
   cli: { calls: string[][]; program: string | null }
   orca: () => OrcaWorkerApi
 }
-
-const START = 1_700_000_000_000
-const settle = () => new Promise<void>((resolve) => setImmediate(resolve))
 
 function pluginList(): string {
   return JSON.stringify({
@@ -96,7 +196,14 @@ function pluginList(): string {
           pluginKey: 'local.os-vitals',
           status: 'running',
           isDev: true,
-          panels: [{ id: 'os-vitals', title: 'OS Vitals' }]
+          panels: [
+            {
+              id: 'os-vitals',
+              title: 'OS Vitals',
+              icon: 'activity',
+              tabKey: 'plugin:local.os-vitals/os-vitals'
+            }
+          ]
         }
       ]
     }
@@ -107,14 +214,14 @@ async function setup(
   options: { settings?: Record<string, string | number | boolean>; program?: string | null } = {}
 ): Promise<Setup> {
   const time = fakeClock(START)
-  const cpus = fakeCpus(4)
+  const system = fakeSystem()
   const cli = {
     calls: [] as string[][],
     program: options.program === undefined ? '/Orca.app/orca' : options.program
   }
   const deps: VitalsDeps = {
     clock: time.clock,
-    provider: nodeOsProvider(cpus.source, 'darwin'),
+    provider: system.provider,
     locateCli: () => cli.program,
     runCli: async (_program, args): Promise<CliResult> => {
       cli.calls.push([...args])
@@ -140,12 +247,22 @@ async function setup(
     if (!api) throw new Error('the worker did not start')
     return api
   }
-  return { worker, host, time, cpus, cli, orca }
+  return { worker, host, time, system, cli, orca }
 }
 
 function statusCalls(host: MockHost): Record<string, unknown>[] {
   return host.callsOf('statusBar.update') as Record<string, unknown>[]
 }
+
+const TOOLTIP = 'OS Vitals\nLoad 1.50 · 1.25 · 1.00\nMemory 8 of 16 GB, pressure normal'
+const query = (overrides: Partial<ProcessQuery> = {}): ProcessQuery => ({
+  sort: 'cpu',
+  direction: 'desc',
+  filter: '',
+  limit: 100,
+  offset: 0,
+  ...overrides
+})
 
 test('hello describes the platform, the CPU and what this system supports', async () => {
   const { worker } = await setup()
@@ -154,10 +271,11 @@ test('hello describes the platform, the CPU and what this system supports', asyn
   assert.equal(hello.platform, 'darwin')
   assert.equal(hello.cpuModel, 'Test CPU 9000')
   assert.equal(hello.cores.length, 4)
-  assert.equal(hello.totalMemory, 16 * 1024 ** 3)
+  assert.equal(hello.totalMemory, 16 * GB)
   assert.equal(hello.sections.cpu, true)
-  assert.equal(hello.sections.load, true)
-  assert.equal(hello.sections.processes, false)
+  assert.equal(hello.sections.memory, true)
+  assert.equal(hello.sections.processes, true)
+  assert.equal(hello.sections.network, false)
   assert.equal(hello.intervalMs, 2000)
   assert.equal(hello.historyMs, 300000)
   assert.equal(hello.defaultView, 'last')
@@ -171,24 +289,28 @@ test('poll answers the whole history first, then only new samples', async () => 
   assert.equal(first.reset, true)
   assert.deepEqual(first.samples, [])
   assert.deepEqual(first.current, { load: [1.5, 1.25, 1], uptime: 93784 })
+  assert.deepEqual(first.memory, MEMORY)
+  assert.equal(first.processes, null)
 
-  time.advance(2000)
+  await time.advance(2000)
   const second = (await worker.request('os-vitals.poll', {
     since: first.seq,
     run: first.run
   })) as PollResult
   assert.equal(second.reset, false)
-  assert.equal(second.samples.length, 1)
-  assert.deepEqual(second.samples[0], {
-    seq: 1,
-    t: START + 2000,
-    total: 30,
-    user: 25,
-    system: 5,
-    cores: [30, 30, 30, 30]
-  })
+  assert.deepEqual(second.samples, [
+    {
+      seq: 1,
+      t: START + 2000,
+      total: 30,
+      user: 25,
+      system: 5,
+      cores: [30, 30, 30, 30],
+      memory: MEMORY
+    }
+  ])
 
-  time.advance(2000)
+  await time.advance(2000)
   const third = (await worker.request('os-vitals.poll', {
     since: second.seq,
     run: second.run
@@ -211,63 +333,173 @@ test('poll answers the whole history first, then only new samples', async () => 
   await worker.deactivate()
 })
 
-test('the status bar item shows CPU, at most every 5 s and only when the text changes', async () => {
-  const { worker, host, time, cpus } = await setup()
+test('the status bar shows CPU and memory, at most every 5 s and only when the text changes', async () => {
+  const { worker, host, time, system } = await setup()
   assert.deepEqual(statusCalls(host), [{ id: 'os-vitals', visible: true }])
 
-  time.advance(5000)
-  await settle()
+  await time.advance(5000)
   assert.deepEqual(statusCalls(host).slice(1), [
-    {
-      id: 'os-vitals',
-      text: 'CPU 30%',
-      tone: 'neutral',
-      tooltip: 'OS Vitals\nLoad 1.50 · 1.25 · 1.00'
-    }
+    { id: 'os-vitals', text: 'CPU 30% · MEM 50%', tone: 'neutral', tooltip: TOOLTIP }
   ])
 
-  time.advance(5000)
-  await settle()
+  await time.advance(5000)
   assert.equal(statusCalls(host).length, 2)
 
-  cpus.setStep({ user: 400, nice: 0, sys: 100, idle: 500, irq: 0 })
+  system.setStep({ user: 400, nice: 0, sys: 100, idle: 500, irq: 0 })
   await worker.request('os-vitals.poll', {})
-  time.advance(2000)
-  await settle()
+  await time.advance(2000)
   assert.equal(statusCalls(host).length, 3)
-  assert.equal(statusCalls(host)[2].text, 'CPU 50%')
+  assert.equal(statusCalls(host)[2].text, 'CPU 50% · MEM 50%')
 
-  cpus.setStep({ user: 250, nice: 0, sys: 50, idle: 700, irq: 0 })
-  time.advance(2000)
-  await settle()
-  time.advance(2000)
-  await settle()
+  system.setStep({ user: 250, nice: 0, sys: 50, idle: 700, irq: 0 })
+  await time.advance(4000)
   assert.equal(statusCalls(host).length, 3)
-  time.advance(2000)
-  await settle()
+  await time.advance(2000)
   assert.equal(statusCalls(host).length, 4)
-  assert.equal(statusCalls(host)[3].text, 'CPU 30%')
+  assert.equal(statusCalls(host)[3].text, 'CPU 30% · MEM 50%')
   assert.deepEqual(worker.refusals, [])
   await worker.deactivate()
 })
 
+test('the status bar setting picks CPU, memory or both', async () => {
+  const { worker, host, time } = await setup({ settings: { statusBar: 'memory' } })
+  await time.advance(5000)
+  assert.equal(statusCalls(host).at(-1)?.text, 'MEM 50%')
+  await worker.deactivate()
+})
+
 test('a hidden status bar item is hidden again on every start, and nothing samples without a panel', async () => {
-  const { worker, host, time } = await setup({
+  const { worker, host, time, system } = await setup({
     settings: { statusBar: 'hidden', memoryAlert: false, cpuAlert: false }
   })
   assert.deepEqual(statusCalls(host), [{ id: 'os-vitals', visible: false }])
   assert.equal(time.pending(), 0)
-  time.advance(60000)
-  await settle()
+  await time.advance(60000)
   assert.equal(statusCalls(host).length, 1)
+  assert.equal(system.calls.processes, 0)
+  assert.deepEqual(worker.refusals, [])
+  await worker.deactivate()
+})
+
+test('processes are read only when a poll asks for them, then sorted, filtered and paged', async () => {
+  const { worker, time, system } = await setup()
+  await time.advance(10000)
+  await worker.request('os-vitals.poll', {})
+  await time.advance(4000)
+  assert.equal(system.calls.processes, 0)
+
+  const page = (await worker.request('os-vitals.poll', {
+    view: 'processes',
+    processes: query()
+  })) as PollResult
+  assert.equal(system.calls.processes, 1)
+  assert.ok(page.processes)
+  assert.equal(page.processes.total, 3)
+  assert.equal(page.processes.matched, 3)
+  assert.deepEqual(
+    page.processes.rows.map((row) => [row.name, row.cpu]),
+    [
+      ['Example App', 12],
+      ['node', 3],
+      ['launchd', 0.1]
+    ]
+  )
+
+  const named = (await worker.request('os-vitals.poll', {
+    view: 'processes',
+    processes: query({ sort: 'name', direction: 'asc', filter: 'e', limit: 1, offset: 1 })
+  })) as PollResult
+  assert.deepEqual(
+    named.processes?.rows.map((row) => row.name),
+    ['node']
+  )
+  assert.equal(named.processes?.matched, 2)
+  assert.equal(named.processes?.offset, 1)
+
+  const byPid = (await worker.request('os-vitals.poll', {
+    view: 'processes',
+    processes: query({ filter: '30' })
+  })) as PollResult
+  assert.deepEqual(
+    byPid.processes?.rows.map((row) => row.pid),
+    [300]
+  )
+  const none = (await worker.request('os-vitals.poll', {
+    view: 'processes',
+    processes: query({ filter: 'nothing like this' })
+  })) as PollResult
+  assert.deepEqual(none.processes?.rows, [])
+  assert.equal(none.processes?.matched, 0)
+  assert.deepEqual(worker.refusals, [])
+  await worker.deactivate()
+})
+
+test('the Processes view reads processes every tick, the Overview every second tick', async () => {
+  const { worker, time, system } = await setup()
+  await worker.request('os-vitals.poll', { view: 'processes', processes: query() })
+  const start = system.calls.processes
+  for (let i = 0; i < 2; i++) {
+    await time.advance(2000)
+    await worker.request('os-vitals.poll', { view: 'processes', processes: query() })
+  }
+  assert.equal(system.calls.processes - start, 2)
+
+  const before = system.calls.processes
+  for (let i = 0; i < 4; i++) {
+    await time.advance(2000)
+    await worker.request('os-vitals.poll', { view: 'overview', processes: query({ limit: 5 }) })
+  }
+  assert.equal(system.calls.processes - before, 2)
+  await worker.deactivate()
+})
+
+test('process CPU comes from the CPU time used between two readings', async () => {
+  const { worker, time } = await setup()
+  await worker.request('os-vitals.poll', { view: 'processes', processes: query() })
+  await time.advance(2000)
+  const page = (await worker.request('os-vitals.poll', {
+    view: 'processes',
+    processes: query()
+  })) as PollResult
+  const app = page.processes?.rows.find((row) => row.pid === 300)
+  assert.equal(app?.cpu, 50)
+  await worker.deactivate()
+})
+
+test('details name the command, parent, user, threads and memory of one process', async () => {
+  const { worker, system } = await setup()
+  await worker.request('os-vitals.poll', { view: 'processes', processes: query() })
+  const detail = (await worker.request('os-vitals.process.detail', { pid: 42 })) as DetailResult
+  assert.deepEqual(detail, {
+    found: true,
+    process: {
+      pid: 42,
+      ppid: 300,
+      parentName: 'Example App',
+      uid: 501,
+      user: 'user',
+      name: 'node',
+      command: 'node /Users/user/project/server.js --port 5173',
+      startedAt: 3000,
+      cpuTime: 5,
+      memory: 300 * 1024 ** 2,
+      cpu: 3,
+      threads: 12
+    }
+  })
+  assert.deepEqual(await worker.request('os-vitals.process.detail', { pid: 7 }), { found: false })
+  await assert.rejects(
+    worker.request('os-vitals.process.detail', { pid: -1 }),
+    (error: unknown) => (error as { code?: string }).code === 'invalid_params'
+  )
+  assert.deepEqual(system.calls.detail, [42, 7])
   assert.deepEqual(worker.refusals, [])
   await worker.deactivate()
 })
 
 test('a changed setting applies at once', async () => {
   const { worker, host, time, orca } = await setup()
-  time.advance(5000)
-  await settle()
+  await time.advance(5000)
   await orca().settings.set('statusBar', 'hidden')
   await settle()
   await settle()
@@ -296,20 +528,21 @@ test('the open command opens the panel through Orca CLI', async () => {
 
 test('without the CLI the open command shows the current numbers instead', async () => {
   const { worker, host, time, cli } = await setup({ program: null })
-  time.advance(5000)
+  await time.advance(5000)
   await worker.command('os-vitals.open')
   assert.deepEqual(cli.calls, [])
   assert.deepEqual(host.callsOf('notifications.show'), [
-    { title: 'OS Vitals', body: 'CPU 30% · Load 1.50 · 1.25 · 1.00' }
+    { title: 'OS Vitals', body: 'CPU 30% · MEM 50% · Load 1.50 · 1.25 · 1.00' }
   ])
   assert.deepEqual(worker.refusals, [])
   await worker.deactivate()
 })
 
-test('deactivate stops every timer', async () => {
-  const { worker, time } = await setup()
+test('deactivate stops every timer and the provider', async () => {
+  const { worker, time, system } = await setup()
   await worker.request('os-vitals.poll', {})
   assert.equal(time.pending(), 1)
   await worker.deactivate()
   assert.equal(time.pending(), 0)
+  assert.equal(system.calls.disposed, 1)
 })

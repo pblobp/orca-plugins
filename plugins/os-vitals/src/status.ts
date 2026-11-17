@@ -1,5 +1,6 @@
 import type { Clock } from './clock.ts'
-import type { LoadAverage } from './protocol.ts'
+import { gigabytes, loadAverage, percent } from './format.ts'
+import type { LoadAverage, MemoryReading } from './protocol.ts'
 import type { StatusBarMode } from './settings.ts'
 
 export const STATUS_BAR_ID = 'os-vitals'
@@ -15,8 +16,17 @@ export type StatusView = {
 
 export type StatusInput = {
   cpu: number | null
-  memory: number | null
+  memory: MemoryReading | null
   load: LoadAverage | null
+}
+
+export function memoryPercent(memory: MemoryReading | null): number | null {
+  return memory && memory.total > 0 ? (memory.used / memory.total) * 100 : null
+}
+
+export function memoryLine(memory: MemoryReading): string {
+  const amount = `Memory ${gigabytes(memory.used)} of ${gigabytes(memory.total)} GB`
+  return memory.pressure ? `${amount}, pressure ${memory.pressure}` : amount
 }
 
 export type StatusBarUpdate = {
@@ -32,23 +42,16 @@ export type StatusBar = {
   show(mode: StatusBarMode, input: StatusInput, force?: boolean): void
 }
 
-export function percentText(value: number | null): string {
-  return value === null || !Number.isFinite(value) ? '–' : `${Math.round(value)}%`
-}
-
-export function loadText(load: LoadAverage): string {
-  return load.map((value) => value.toFixed(2)).join(' · ')
-}
-
 export function statusView(mode: StatusBarMode, input: StatusInput): StatusView | null {
   if (mode === 'hidden') return null
   const parts: string[] = []
-  if (mode !== 'memory') parts.push(`CPU ${percentText(input.cpu)}`)
+  if (mode !== 'memory') parts.push(`CPU ${percent(input.cpu)}`)
   if (mode === 'memory' || (mode === 'cpu-memory' && input.memory !== null)) {
-    parts.push(`MEM ${percentText(input.memory)}`)
+    parts.push(`MEM ${percent(memoryPercent(input.memory))}`)
   }
   const lines = ['OS Vitals']
-  if (input.load) lines.push(`Load ${loadText(input.load)}`)
+  if (input.load) lines.push(`Load ${loadAverage(input.load)}`)
+  if (input.memory) lines.push(memoryLine(input.memory))
   return { text: parts.join(' · '), tone: 'neutral', tooltip: lines.join('\n') }
 }
 
