@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import os from 'node:os'
+import { basename } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { realClock } from '../../plugins/os-vitals/src/clock.ts'
 import { cpuUsage } from '../../plugins/os-vitals/src/cpu.ts'
@@ -84,6 +85,26 @@ if (sections.processes) {
   assert.ok(detail.command.includes('smoke'), `unexpected command line: ${detail.command}`)
   assert.ok(detail.threads === null || detail.threads > 0)
   notes.push(`${list.length} processes, own details with ${detail.threads ?? '?'} threads`)
+  const identity = await provider.identify(process.pid)
+  assert.ok(identity, 'this smoke test cannot identify itself')
+  assert.equal(identity.start, self.start, 'identity start differs from the list')
+  if (platform === 'linux') {
+    const name = self.name ?? self.comm
+    assert.ok(
+      name === 'node' || name === basename(process.execPath),
+      `this process is listed as ${name}`
+    )
+    const used = process.cpuUsage()
+    const seconds = (used.user + used.system) / 1e6
+    assert.ok(
+      Math.abs(self.cpuTime - seconds) <= Math.max(0.5, seconds * 0.2),
+      `CPU time ${self.cpuTime} s from /proc, ${seconds.toFixed(2)} s from Node`
+    )
+    const started = Date.now() - process.uptime() * 1000
+    assert.ok(Math.abs(self.startedAt - started) < 5000, 'start time is off by more than 5 s')
+    const kernel = list.filter((entry) => entry.kernel).length
+    notes.push(`name ${name}, CPU time matches Node, ${kernel} kernel threads`)
+  }
 } else {
   notes.push('processes not supported here yet')
 }
@@ -130,6 +151,7 @@ if (sections.disk) {
   assert.ok(volumes && volumes.length > 0, 'no volumes')
   const startup = volumes.find((volume) => volume.startup)
   assert.ok(startup, 'no startup volume')
+  if (platform === 'linux') assert.equal(startup.mount, '/', 'the startup volume is not /')
   for (const volume of volumes) {
     assert.ok(volume.total > 0, `${volume.name} has no size`)
     assert.ok(volume.available >= 0 && volume.available <= volume.total, `${volume.name} free`)
@@ -173,7 +195,7 @@ if (sections.energy) {
   assert.ok(took < 4000, `top took ${took} ms`)
   notes.push(`energy ${energy.length} rows in ${took} ms, ${assertions.length} assertions`)
 } else {
-  notes.push('energy not supported here yet')
+  notes.push('no per-process energy measure here')
 }
 
 const first = provider.cpuTimes()

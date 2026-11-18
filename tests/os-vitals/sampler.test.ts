@@ -23,6 +23,7 @@ const MEMORY: MemoryReading = {
   app: 3 * 1024 ** 3,
   wired: 512 * 1024 ** 2,
   compressed: 512 * 1024 ** 2,
+  buffers: null,
   cached: 2 * 1024 ** 3,
   free: 2 * 1024 ** 3,
   swapUsed: 0,

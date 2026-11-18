@@ -49,7 +49,8 @@ export function parseBattery(text: string): BatteryReading | null {
     minutesLeft:
       minutes !== null && minutes > 0 && (state === 'discharging' || state === 'charging')
         ? minutes
-        : null
+        : null,
+    watts: null
   }
 }
 

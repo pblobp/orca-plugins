@@ -1246,7 +1246,7 @@ a:focus-visible {
   flex-direction: column;
 }
 
-.vt-row {
+.vt-kv {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1257,8 +1257,8 @@ a:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
-.vt-volume .vt-row,
-.vt-rows .vt-row:first-child {
+.vt-volume .vt-kv,
+.vt-rows .vt-kv:first-child {
   border-top: 0;
 }
 
@@ -1304,6 +1304,11 @@ a:focus-visible {
   font-size: 11.5px;
 }
 
+.vt-card.vt-limited {
+  color: var(--vt-fg2);
+  font-size: 12px;
+}
+
 .vt-tag {
   color: var(--vt-fg3);
   font-size: 12px;
@@ -1322,12 +1327,12 @@ a:focus-visible {
   gap: 5px;
 }
 
-.vt-volume .vt-row {
+.vt-volume .vt-kv {
   min-height: 0;
   align-items: baseline;
 }
 
-.vt-volume .vt-row > .vt-fg2 {
+.vt-volume .vt-kv > .vt-fg2 {
   flex: 0 0 auto;
   white-space: nowrap;
 }

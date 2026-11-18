@@ -23,8 +23,11 @@ All notable changes to OS Vitals are recorded here. The format follows
   network, disk, GPU and energy, opened from each card's title. Charts show the time and values
   under the pointer, take keyboard focus, and label their scale; network and disk scales rise
   above the highest reading in view.
-- Energy impact per process and the apps that keep the computer awake, read only while the Energy
-  view is open.
+- Energy impact per process and the apps that keep the computer awake, read every 10 seconds and
+  only while the Energy view is open.
+- Linux: memory with buffers, cache and pressure, processes and their details from `/proc` with
+  quit, network, disk I/O, disk space, NVIDIA and AMD GPU use, and the battery with its power draw.
+- Windows and other systems: CPU and memory, and a note in the panel that says so.
 - A status bar item with the current CPU and memory usage, updated at most every 5 seconds and only
   when a number changes. Pressing it opens the panel.
 - Settings for the refresh interval, the history length, the status bar item, background sampling,
@@ -48,5 +51,8 @@ All notable changes to OS Vitals are recorded here. The format follows
   interface, `/bin/df` for other volumes and `/usr/bin/pmset` for the battery. While the Energy view
   is open it runs `/usr/bin/top` for energy impact and `/usr/bin/pmset` for the apps keeping the
   computer awake. It reads the startup disk's space with `statfs` and its name from `/Volumes`.
+- On Linux, reads `/proc` and `/sys` files and `/etc/passwd` directly, and runs
+  `/usr/bin/nvidia-smi` or `/usr/local/bin/nvidia-smi` when one of them exists, for NVIDIA GPU use.
+- Quitting on Linux sends the same signals after the same checks; kernel threads are never quit.
 - Sends `SIGTERM`, or `SIGKILL` when you force it, to a process you confirm in the panel, as your
   user, after the checks the README describes. This needs no new capability.

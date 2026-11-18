@@ -19,6 +19,7 @@ const memoryAt = (percent: number, pressure: MemoryReading['pressure'] = null): 
   app: null,
   wired: null,
   compressed: null,
+  buffers: null,
   cached: null,
   free: 48 * GB * (1 - percent / 100),
   swapUsed: null,

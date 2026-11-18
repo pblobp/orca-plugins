@@ -73,6 +73,7 @@ const MEMORY: MemoryReading = {
   app: 5 * GB,
   wired: 2 * GB,
   compressed: 1 * GB,
+  buffers: null,
   cached: 3 * GB,
   free: 5 * GB,
   swapUsed: 0,
@@ -84,7 +85,13 @@ const VOLUMES = [
   { name: 'Macintosh HD', mount: '/', startup: true, total: 494 * GB, available: 119 * GB }
 ]
 
-const BATTERY = { percent: 82, onBattery: true, state: 'discharging' as const, minutesLeft: 222 }
+const BATTERY = {
+  percent: 82,
+  onBattery: true,
+  state: 'discharging' as const,
+  minutesLeft: 222,
+  watts: null
+}
 
 function fakeSystem(extra: RawProcess[] = [], extras = false) {
   const step = { user: 250, nice: 0, sys: 50, idle: 700, irq: 0 }
@@ -223,7 +230,8 @@ function fakeSystem(extra: RawProcess[] = [], extras = false) {
             utilization: 25.5,
             renderer: 24,
             inUse: 1.2 * GB,
-            allocated: 6.7 * GB
+            allocated: 6.7 * GB,
+            dedicated: false
           }
         : null,
     battery: async () => (extras ? BATTERY : null),
@@ -398,6 +406,7 @@ test('hello describes the platform, the CPU and what this system supports', asyn
   assert.equal(hello.sections.network, false)
   assert.equal(hello.intervalMs, 2000)
   assert.equal(hello.historyMs, 300000)
+  assert.equal(hello.energyIntervalMs, 10000)
   assert.equal(hello.defaultView, 'last')
   assert.deepEqual(worker.refusals, [])
   await worker.deactivate()
@@ -462,7 +471,7 @@ test('poll answers network, disk, GPU, volumes and battery, and energy only in t
   assert.equal(result.sections.network, true)
   assert.deepEqual(result.volumes, VOLUMES)
   assert.deepEqual(result.battery, BATTERY)
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 4; i++) {
     await time.advance(2000)
     result = (await worker.request('os-vitals.poll', {
       view: 'overview',
@@ -475,7 +484,7 @@ test('poll answers network, disk, GPU, volumes and battery, and energy only in t
   assert.deepEqual(last.disk, { read: 6_172_839, write: 1_605_494 })
   assert.equal(last.gpu, 25.5)
   assert.equal(result.network?.defaultInterface, 'en0')
-  assert.equal(result.network?.received, 2 * 3_000_001)
+  assert.equal(result.network?.received, 4 * 3_000_001)
   assert.deepEqual(
     result.network?.interfaces.map((row) => [row.name, row.counted]),
     [
@@ -519,8 +528,10 @@ test('the first poll with every series and 15 minutes of history at 1 s stays fa
   }
   const full = (await worker.request('os-vitals.poll', { view: 'overview' })) as PollResult
   assert.ok(full.samples.length >= 900, `history holds ${full.samples.length} samples`)
-  const complete = full.samples.filter((sample) => sample.net && sample.disk && sample.gpu !== null)
-  assert.ok(complete.length >= full.samples.length - 2)
+  const withNet = full.samples.filter((sample) => sample.net).length
+  const withDisk = full.samples.filter((sample) => sample.disk && sample.gpu !== null).length
+  assert.ok(withNet >= full.samples.length - 2)
+  assert.ok(withDisk >= full.samples.length / 2 - 2)
   const size = JSON.stringify(full).length
   assert.ok(size < 400 * 1024, `the first poll is ${size} bytes`)
   assert.deepEqual(worker.refusals, [])

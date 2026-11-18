@@ -9,7 +9,8 @@ test('the accelerator gives its utilization, renderer, memory and model', () => 
     utilization: 22,
     renderer: 22,
     inUse: 845266944,
-    allocated: 5785731072
+    allocated: 5785731072,
+    dedicated: false
   })
 })
 
@@ -19,7 +20,8 @@ test('with two GPUs the busier one is shown, and a quoted data model is read', (
     utilization: 41,
     renderer: null,
     inUse: null,
-    allocated: null
+    allocated: null,
+    dedicated: false
   })
 })
 

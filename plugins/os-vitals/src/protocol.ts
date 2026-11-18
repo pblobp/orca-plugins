@@ -16,6 +16,7 @@ export type MemoryReading = {
   app: number | null
   wired: number | null
   compressed: number | null
+  buffers: number | null
   cached: number | null
   free: number
   swapUsed: number | null
@@ -40,7 +41,7 @@ export type Sample = {
   gpu: number | null
 }
 
-export type InterfaceKind = 'loopback' | 'tunnel' | 'bridge' | 'wireless-helper' | null
+export type InterfaceKind = 'loopback' | 'tunnel' | 'bridge' | 'virtual' | 'wireless-helper' | null
 
 export type InterfaceRate = {
   name: string
@@ -86,6 +87,7 @@ export type GpuReading = {
   renderer: number | null
   inUse: number | null
   allocated: number | null
+  dedicated: boolean
 }
 
 export type BatteryState = 'charging' | 'discharging' | 'charged' | 'finishing' | 'not-charging'
@@ -95,6 +97,7 @@ export type BatteryReading = {
   onBattery: boolean
   state: BatteryState | null
   minutesLeft: number | null
+  watts: number | null
 }
 
 export type BlockerKind = 'system' | 'display'
@@ -137,6 +140,7 @@ export type HelloResult = {
   sections: Sections
   intervalMs: number
   historyMs: number
+  energyIntervalMs: number
   defaultView: DefaultView
 }
 
@@ -166,6 +170,7 @@ export type ProcessRow = {
   cpuTime: number
   startedAt: number
   start: string
+  kernel?: boolean
 }
 
 export type ListedProcess = ProcessRow & { quit: QuitOffer }

@@ -13,7 +13,8 @@ test('a laptop on AC that is not charging', () => {
     percent: 69,
     onBattery: false,
     state: 'not-charging',
-    minutesLeft: null
+    minutesLeft: null,
+    watts: null
   })
 })
 
@@ -22,7 +23,8 @@ test('on battery, the time left is read', () => {
     percent: 82,
     onBattery: true,
     state: 'discharging',
-    minutesLeft: 222
+    minutesLeft: 222,
+    watts: null
   })
 })
 
@@ -31,13 +33,15 @@ test('charging without an estimate, and charged', () => {
     percent: 45,
     onBattery: false,
     state: 'charging',
-    minutesLeft: null
+    minutesLeft: null,
+    watts: null
   })
   assert.deepEqual(parseBattery(fixture('darwin/pmset-batt-charged.txt')), {
     percent: 100,
     onBattery: false,
     state: 'charged',
-    minutesLeft: null
+    minutesLeft: null,
+    watts: null
   })
 })
 
@@ -55,7 +59,8 @@ test('a battery line with only two fields is still read', () => {
     percent: 95,
     onBattery: false,
     state: 'charging',
-    minutesLeft: null
+    minutesLeft: null,
+    watts: null
   })
 })
 

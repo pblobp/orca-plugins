@@ -23,13 +23,16 @@ export function createEnergyView(actions: PanelActions) {
   const bar = meter('s3')
   const time = el('span')
   const state = el('span')
+  const draw = el('span')
+  const drawLine = el('div', { className: 'vt-foot' }, [draw])
   const battery = card('vt-battery-h1', [
     el('div', { className: 'vt-card-head' }, [
       el('div', { className: 'vt-head-text' }, [heading('Battery', 'vt-battery-h1'), source]),
       level
     ]),
     bar.element,
-    el('div', { className: 'vt-foot' }, [time, state])
+    el('div', { className: 'vt-foot' }, [time, state]),
+    drawLine
   ])
 
   const impactHint = el('span', { className: 'vt-sub' })
@@ -91,7 +94,7 @@ export function createEnergyView(actions: PanelActions) {
     while (awakeRows.length < list.length) {
       const name = el('span', { className: 'vt-impact-name' })
       const why = el('span', { className: 'vt-fg2 vt-why' })
-      awakeRows.push({ element: el('div', { className: 'vt-row' }, [name, why]), name, why })
+      awakeRows.push({ element: el('div', { className: 'vt-kv' }, [name, why]), name, why })
     }
     list.forEach((entry, index) => {
       setText(awakeRows[index].name, entry.name)
@@ -116,6 +119,8 @@ export function createEnergyView(actions: PanelActions) {
       bar.set(reading.percent / 100, batteryLabel(reading))
       setText(time, batteryEstimate(reading))
       setText(state, batteryState(reading))
+      drawLine.hidden = reading.watts === null
+      setText(draw, reading.watts === null ? '' : `Drawing ${reading.watts.toFixed(1)} W`)
     }
     impact.hidden = !model.sections.energy
     setText(impactHint, reading ? 'Higher uses more battery' : 'Higher uses more energy')

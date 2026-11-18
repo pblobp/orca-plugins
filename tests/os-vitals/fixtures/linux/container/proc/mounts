@@ -1,0 +1,14 @@
+overlay / overlay rw,relatime,lowerdir=/var/lib/example/snapshots/1/fs,upperdir=/var/lib/example/snapshots/2/fs,workdir=/var/lib/example/snapshots/2/work 0 0
+proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0
+tmpfs /dev tmpfs rw,nosuid,size=65536k,mode=755 0 0
+devpts /dev/pts devpts rw,nosuid,noexec,relatime,gid=5,mode=620,ptmxmode=666 0 0
+sysfs /sys sysfs ro,nosuid,nodev,noexec,relatime 0 0
+cgroup /sys/fs/cgroup cgroup2 ro,nosuid,nodev,noexec,relatime 0 0
+mqueue /dev/mqueue mqueue rw,nosuid,nodev,noexec,relatime 0 0
+shm /dev/shm tmpfs rw,nosuid,nodev,noexec,relatime,size=65536k 0 0
+/dev/vda1 /etc/hostname ext4 rw,relatime,discard 0 0
+/dev/vda1 /etc/hosts ext4 rw,relatime,discard 0 0
+/dev/vda1 /etc/resolv.conf ext4 rw,relatime,discard 0 0
+/run/host_mark/Shared /repo fakeowner ro,nosuid,nodev,relatime,fakeowner 0 0
+proc /proc/bus proc ro,nosuid,nodev,noexec,relatime 0 0
+tmpfs /proc/kcore tmpfs rw,nosuid,size=65536k,mode=755 0 0

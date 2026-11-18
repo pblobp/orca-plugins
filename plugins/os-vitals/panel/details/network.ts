@@ -19,8 +19,15 @@ const KIND_TEXT = {
   loopback: 'Loopback',
   tunnel: 'Tunnel',
   bridge: 'Bridge',
+  virtual: 'Virtual',
   'wireless-helper': 'Apple wireless'
 }
+
+export const MAC_NOTE =
+  'Totals leave out loopback, bridges, tunnels and Apple wireless helpers: their traffic stays on this Mac or is counted on another interface.'
+
+export const LINUX_NOTE =
+  'Totals leave out loopback, Docker and other bridges, veth pairs and tunnels: their traffic stays on this computer or is counted on another interface.'
 
 export function interfaceKindText(row: InterfaceRate, defaultInterface: string | null): string {
   if (row.kind) return KIND_TEXT[row.kind]
@@ -50,10 +57,7 @@ export function createNetworkView(actions: PanelActions) {
     totals.element
   ])
   const table = miniTable(['Name', 'Down', 'Up'], ['vt-name', 'vt-num', 'vt-num'])
-  const note = el('p', {
-    className: 'vt-note',
-    text: 'Totals leave out loopback, bridges, tunnels and Apple wireless helpers: their traffic stays on this Mac or is counted on another interface.'
-  })
+  const note = el('p', { className: 'vt-note' })
   const interfaces = card(
     'vt-net-ifaces',
     [sectionTitle('Interfaces', 'vt-net-ifaces'), table.element, note],
@@ -62,6 +66,7 @@ export function createNetworkView(actions: PanelActions) {
   const frame = detailFrame(actions, [usage, since, interfaces])
 
   function update(model: PanelModel): void {
+    setText(note, model.hello.platform === 'linux' ? LINUX_NOTE : MAC_NOTE)
     const network = model.network
     rates.set(rate(network?.down), rate(network?.up))
     const route = network?.defaultInterface ?? null

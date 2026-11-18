@@ -9,6 +9,8 @@ export type RawProcess = {
   start: string
   user: string
   comm: string
+  name?: string
+  kernel?: boolean
 }
 
 export type Identity = {
@@ -16,6 +18,7 @@ export type Identity = {
   uid: number
   path: string
   name: string
+  kernel?: boolean
 }
 
 export type RawDetail = RawProcess & {
@@ -44,7 +47,8 @@ const LINE =
 const LSTART = '[A-Z][a-z]{2}\\s+[A-Z][a-z]{2}\\s+\\d{1,2}\\s+\\d{2}:\\d{2}:\\d{2}\\s+\\d{4}'
 const IDENTITY = new RegExp(`^\\s*(${LSTART})\\s+(\\d+)\\s+(\\S.*?)\\s*$`)
 
-export const START_TOKEN = /^[A-Z][a-z]{2} [A-Z][a-z]{2} \d{1,2} \d{2}:\d{2}:\d{2} \d{4}$/
+export const START_TOKEN =
+  /^(?:[A-Z][a-z]{2} [A-Z][a-z]{2} \d{1,2} \d{2}:\d{2}:\d{2} \d{4}|\d{1,20})$/
 
 export function normalizeStart(text: string): string {
   return text.trim().split(/\s+/).join(' ')

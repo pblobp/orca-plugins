@@ -24,7 +24,7 @@ import {
   type QuitContext,
   type QuitSignal
 } from './quit.ts'
-import { createSampler, type SamplerConfig } from './sampler.ts'
+import { createSampler, ENERGY_INTERVAL_MS, type SamplerConfig } from './sampler.ts'
 import {
   backgroundEnabled,
   DEFAULT_SETTINGS,
@@ -189,6 +189,7 @@ export async function startVitals(orca: OrcaWorkerApi, deps: VitalsDeps): Promis
       sections: provider.sections(),
       intervalMs: settings.refreshSeconds * 1000,
       historyMs: settings.historyMinutes * 60 * 1000,
+      energyIntervalMs: ENERGY_INTERVAL_MS,
       defaultView: settings.defaultView
     }))
   )

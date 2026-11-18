@@ -1,5 +1,5 @@
 import type { MemoryReading, Sample } from '../../src/protocol.ts'
-import { createPressure, FREE, memoryParts, type Part } from '../cards/memory.ts'
+import { createPressure, FREE, memoryParts, segmentShares, type Part } from '../cards/memory.ts'
 import { meter } from '../cards/common.ts'
 import { createTimeChart } from '../charts.ts'
 import { el, setText } from '../dom.ts'
@@ -93,7 +93,7 @@ export function createMemoryView(actions: PanelActions) {
     }))
     rows.replaceChildren(
       ...listed.map((part, index) =>
-        el('div', { className: 'vt-row' }, [
+        el('div', { className: 'vt-kv' }, [
           el('span', { className: 'vt-key' }, [
             el('span', {
               className: `vt-swatch vt-${part.series}`,
@@ -112,9 +112,13 @@ export function createMemoryView(actions: PanelActions) {
     if (parts !== shownParts) build(parts)
     const listed = [...parts, FREE]
     const described: string[] = []
+    const shares = segmentShares(
+      parts.map((part) => part.value(memory) ?? 0),
+      memory.total
+    )
     listed.forEach((part, index) => {
       const value = part.value(memory) ?? 0
-      if (index < parts.length) segments[index].style.flexBasis = `${(100 * value) / memory.total}%`
+      if (index < parts.length) segments[index].style.flexBasis = `${shares[index]}%`
       setText(cells[index].value, bytes(value))
       setText(cells[index].share, percent((100 * value) / memory.total))
       described.push(`${part.label.toLowerCase()} ${gigabytes(value)}`)

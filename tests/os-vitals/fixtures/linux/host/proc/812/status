@@ -1,0 +1,13 @@
+Name:	sshd
+Umask:	0022
+State:	S (sleeping)
+Tgid:	0
+Ngid:	0
+PPid:	1
+TracerPid:	0
+Uid:	0	0	0	0
+Gid:	0	0	0	0
+VmPeak:	  27000 kB
+VmRSS:	  9000 kB
+Threads:	1
+voluntary_ctxt_switches:	10

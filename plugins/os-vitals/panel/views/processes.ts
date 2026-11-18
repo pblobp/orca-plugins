@@ -252,9 +252,10 @@ export function createProcesses(actions: PanelActions): View {
   )
   drawer.hidden = true
 
+  const unsupportedText = el('p', { className: 'vt-muted' })
   const unsupported = el('section', { className: 'vt-card vt-notice' }, [
     el('h2', { className: 'vt-title', text: 'Processes are not available' }),
-    el('p', { className: 'vt-muted', text: 'OS Vitals cannot list processes on this system yet.' })
+    unsupportedText
   ])
   const list = el('div', { className: 'vt-proclist' }, [toolbar, listNotice, table, footer, drawer])
   const element = el('div', { className: 'vt-processes' }, [list, unsupported])
@@ -629,6 +630,13 @@ export function createProcesses(actions: PanelActions): View {
     const supported = model.sections.processes
     list.hidden = !supported
     unsupported.hidden = supported
+    const full = model.hello.platform === 'darwin' || model.hello.platform === 'linux'
+    setText(
+      unsupportedText,
+      full
+        ? 'OS Vitals could not read the process list on this system.'
+        : 'OS Vitals lists and quits processes on macOS and Linux. This system gets CPU and memory only.'
+    )
     if (!supported) return
     const page = model.processes
     const shown = page ? page.rows : []

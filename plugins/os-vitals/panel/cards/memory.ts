@@ -19,6 +19,12 @@ const DETAILED: readonly Part[] = [
 
 const SIMPLE: readonly Part[] = [{ label: 'Used', series: 's1', value: (m) => m.used }]
 
+const LINUX: readonly Part[] = [
+  { label: 'Used', series: 's1', value: (m) => m.used },
+  { label: 'Buffers', series: 's2', value: (m) => m.buffers },
+  { label: 'Cached', series: 's4', value: (m) => m.cached }
+]
+
 export const FREE: Part = { label: 'Free', series: 'free', value: (m) => m.free }
 
 const PRESSURE_TEXT: Record<MemoryPressure, string> = {
@@ -28,7 +34,17 @@ const PRESSURE_TEXT: Record<MemoryPressure, string> = {
 }
 
 export function memoryParts(memory: MemoryReading): readonly Part[] {
-  return memory.app === null ? SIMPLE : DETAILED
+  if (memory.app !== null) return DETAILED
+  return memory.buffers !== null ? LINUX : SIMPLE
+}
+
+export function segmentShares(values: readonly number[], total: number): number[] {
+  let left = 100
+  return values.map((value) => {
+    const share = total > 0 ? Math.max(0, Math.min(left, (100 * value) / total)) : 0
+    left -= share
+    return share
+  })
 }
 
 export function isSimple(parts: readonly Part[]): boolean {
@@ -86,7 +102,7 @@ export function createMemoryCard(actions: PanelActions) {
     shownParts = parts
     segments = parts.map((part) => el('div', { className: `vt-seg vt-${part.series}` }))
     bar.replaceChildren(...segments, free)
-    const listed = parts === SIMPLE ? [...parts, FREE] : parts
+    const listed = parts === DETAILED ? parts : [...parts, FREE]
     values = listed.map(() => el('span', { className: 'vt-value' }))
     legend.replaceChildren(
       ...listed.map((part, index) =>
@@ -119,13 +135,14 @@ export function createMemoryCard(actions: PanelActions) {
     setText(used, gigabytes(memory.used))
     setText(of, `of ${gigabytes(memory.total)} GB`)
     const described: string[] = []
+    const amounts = parts.map((part) => part.value(memory) ?? 0)
+    const shares = segmentShares(amounts, memory.total)
     parts.forEach((part, index) => {
-      const value = part.value(memory) ?? 0
-      segments[index].style.flexBasis = `${(100 * value) / memory.total}%`
-      setText(values[index], bytes(value))
-      described.push(`${part.label.toLowerCase()} ${gigabytes(value)}`)
+      segments[index].style.flexBasis = `${shares[index]}%`
+      setText(values[index], bytes(amounts[index]))
+      described.push(`${part.label.toLowerCase()} ${gigabytes(amounts[index])}`)
     })
-    if (parts === SIMPLE) setText(values[parts.length], bytes(memory.free))
+    if (parts !== DETAILED) setText(values[parts.length], bytes(memory.free))
     described.push(`free ${gigabytes(memory.free)}`)
     setAttr(bar, 'aria-label', `Memory in use: ${described.join(', ')} gigabytes`)
 

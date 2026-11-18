@@ -65,3 +65,15 @@ test('the candidate is used only when it can run', () => {
   )
   assert.deepEqual(tried, ['/Applications/Orca.app/Contents/Resources/bin/orca'])
 })
+
+test('on Linux the CLI beside the executable is used when it can run, and never one on PATH', () => {
+  const tried: string[] = []
+  const env = { platform: 'linux', execPath: '/opt/Orca/orca' }
+  const runnable = (file: string) => {
+    tried.push(file)
+    return file === '/opt/Orca/resources/bin/orca-ide'
+  }
+  assert.equal(locateCli(env, runnable), '/opt/Orca/resources/bin/orca-ide')
+  assert.equal(locateCli({ platform: 'linux', execPath: '/usr/bin/node' }, runnable), null)
+  assert.deepEqual(tried, ['/opt/Orca/resources/bin/orca-ide', '/usr/bin/resources/bin/orca-ide'])
+})
