@@ -55,46 +55,46 @@ const VIEWS = ['overview', 'processes', 'cpu', 'memory', 'network', 'disk', 'gpu
 
 const THEMES: Record<Theme, Record<string, string>> = {
   dark: {
-    '--orca-background': '#111113',
-    '--orca-foreground': '#ededef',
-    '--orca-card': '#18181b',
-    '--orca-card-foreground': '#ededef',
-    '--orca-popover': '#18181b',
-    '--orca-popover-foreground': '#ededef',
-    '--orca-primary': '#ededef',
-    '--orca-primary-foreground': '#18181b',
-    '--orca-secondary': '#232327',
-    '--orca-secondary-foreground': '#ededef',
-    '--orca-muted': '#232327',
-    '--orca-muted-foreground': '#b4b4bd',
-    '--orca-accent': '#2a2a2f',
-    '--orca-accent-foreground': '#ededef',
+    '--orca-background': '#0a0a0a',
+    '--orca-foreground': '#f0f0f0',
+    '--orca-card': '#171717',
+    '--orca-card-foreground': '#f0f0f0',
+    '--orca-popover': '#171717',
+    '--orca-popover-foreground': '#f0f0f0',
+    '--orca-primary': '#e5e5e5',
+    '--orca-primary-foreground': '#171717',
+    '--orca-secondary': '#262626',
+    '--orca-secondary-foreground': '#f0f0f0',
+    '--orca-muted': '#262626',
+    '--orca-muted-foreground': '#acacac',
+    '--orca-accent': '#404040',
+    '--orca-accent-foreground': '#f0f0f0',
     '--orca-destructive': '#e05252',
     '--orca-destructive-foreground': '#ffffff',
-    '--orca-border': '#2a2a2f',
-    '--orca-input': '#2a2a2f',
+    '--orca-border': '#ffffff12',
+    '--orca-input': '#ffffff26',
     '--orca-ring': '#3987e5',
     '--orca-radius': '8px'
   },
   light: {
-    '--orca-background': '#fafafa',
-    '--orca-foreground': '#18181b',
+    '--orca-background': '#ffffff',
+    '--orca-foreground': '#0a0a0a',
     '--orca-card': '#ffffff',
-    '--orca-card-foreground': '#18181b',
+    '--orca-card-foreground': '#0a0a0a',
     '--orca-popover': '#ffffff',
-    '--orca-popover-foreground': '#18181b',
-    '--orca-primary': '#18181b',
+    '--orca-popover-foreground': '#0a0a0a',
+    '--orca-primary': '#171717',
     '--orca-primary-foreground': '#fafafa',
-    '--orca-secondary': '#f1f1f3',
-    '--orca-secondary-foreground': '#18181b',
-    '--orca-muted': '#f1f1f3',
-    '--orca-muted-foreground': '#4b4b55',
-    '--orca-accent': '#e9e9ec',
-    '--orca-accent-foreground': '#18181b',
+    '--orca-secondary': '#f5f5f5',
+    '--orca-secondary-foreground': '#171717',
+    '--orca-muted': '#f5f5f5',
+    '--orca-muted-foreground': '#696969',
+    '--orca-accent': '#f5f5f5',
+    '--orca-accent-foreground': '#171717',
     '--orca-destructive': '#d03b3b',
     '--orca-destructive-foreground': '#ffffff',
-    '--orca-border': '#e2e2e6',
-    '--orca-input': '#e2e2e6',
+    '--orca-border': '#e5e5e5',
+    '--orca-input': '#e5e5e5',
     '--orca-ring': '#2a78d6',
     '--orca-radius': '8px'
   }
@@ -230,7 +230,36 @@ function memoryReading(): MemoryReading {
 const SYSTEM = '/System/Library/CoreServices'
 const ORCA_APP = '/Applications/Orca.app/Contents'
 
-const NAMES = [
+const neutral = params.get('neutral') === '1'
+
+const NEUTRAL_NAMES = [
+  ['video-encoder', 115.6, 9.18 * GB, '/usr/local/bin/video-encoder'],
+  ['window-compositor', 20.8, 1.02 * GB, '/usr/libexec/window-compositor'],
+  ['audio-service', 10.4, 34 * MB, '/usr/sbin/audio-service'],
+  ['vm-runner', 9.1, 9.65 * GB, '/usr/local/bin/vm-runner'],
+  ['web-browser', 6.2, 553 * MB, '/Applications/Web Browser.app/Contents/MacOS/web-browser'],
+  ['node', 5.4, 412 * MB, '/Users/user/.local/bin/node'],
+  ['code-editor', 3.1, 388 * MB, '/Applications/Code Editor.app/Contents/MacOS/code-editor'],
+  ['music-player', 2.8, 301 * MB, '/Applications/Music Player.app/Contents/MacOS/music-player'],
+  ['agent', 2.4, 624 * MB, '/Users/user/.local/bin/agent'],
+  ['container-backend', 1.9, 212 * MB, '/usr/local/bin/container-backend'],
+  ['postgres', 1.2, 96 * MB, '/usr/local/bin/postgres'],
+  ['search-indexer', 0.9, 148 * MB, '/usr/libexec/search-indexer'],
+  ['photo-library', 0.8, 276 * MB, '/Applications/Photo Library.app/Contents/MacOS/photo-library'],
+  ['tsc', 0.6, 512 * MB, '/Users/user/project/node_modules/.bin/tsc'],
+  ['gpu-helper', 0.5, 164 * MB, '/usr/libexec/gpu-helper'],
+  ['file-manager', 0.4, 187 * MB, '/usr/libexec/file-manager'],
+  ['watchman', 0.2, 71 * MB, '/usr/local/bin/watchman'],
+  ['zsh', 0.1, 6 * MB, '/bin/zsh'],
+  ['launchd', 0.1, 22 * MB, '/sbin/launchd'],
+  ['cfprefsd', 0, 9 * MB, '/usr/sbin/cfprefsd'],
+  ['ssh-agent', 0, 4 * MB, '/usr/bin/ssh-agent'],
+  ['dock', 0.3, 64 * MB, '/usr/libexec/dock'],
+  ['loginwindow', 0.2, 80 * MB, '/usr/libexec/loginwindow'],
+  ['vite', 1.4, 210 * MB, '/Users/user/project/node_modules/.bin/vite']
+] as const
+
+const SAMPLE_NAMES = [
   ['qemu-system-aarch64', 115.6, 9.18 * GB, '/opt/homebrew/bin/qemu-system-aarch64'],
   [
     'WindowServer',
@@ -276,6 +305,8 @@ const NAMES = [
   ['loginwindow', 0.2, 80 * MB, `${SYSTEM}/loginwindow.app/Contents/MacOS/loginwindow`],
   ['vite', 1.4, 210 * MB, '/Users/user/project/node_modules/.bin/vite']
 ] as const
+
+const NAMES = neutral ? NEUTRAL_NAMES : SAMPLE_NAMES
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -455,7 +486,13 @@ function sections(): Sections {
 }
 
 const VOLUMES: Volume[] = [
-  { name: 'Macintosh HD', mount: '/', startup: true, total: 494 * GB, available: 119 * GB },
+  {
+    name: neutral ? 'System' : 'Macintosh HD',
+    mount: '/',
+    startup: true,
+    total: 494 * GB,
+    available: 119 * GB
+  },
   {
     name: 'Backup Drive',
     mount: '/Volumes/Backup Drive',
@@ -539,7 +576,7 @@ function gpuReading(): GpuReading | null {
     }
   }
   return {
-    model: 'Apple M4 Pro',
+    model: neutral ? null : 'Apple M4 Pro',
     utilization: sample.gpu,
     renderer: Math.max(0, round1(sample.gpu - 1)),
     inUse: 1.2 * GB,
@@ -565,25 +602,32 @@ function energyReading(now: number, input: PollInput): EnergyReading | null {
   energyPolls += 1
   if (energyPolls < 2 || params.get('energy') === 'wait') return null
   const named = (name: string) => PROCESS_TABLE.find((row) => row.name === name)?.pid ?? 0
-  const impact: [string, number][] = [
-    ['WindowServer', 11],
-    ['Example Browser Helper (Renderer)', 9.9],
-    ['qemu-system-aarch64', 8.7],
-    ['Orca Helper (Renderer)', 7.8],
-    ['coreaudiod', 6.7],
-    ['node', 5.4]
-  ]
+  const impact: [string, number][] = neutral
+    ? [
+        ['window-compositor', 11],
+        ['web-browser', 9.9],
+        ['video-encoder', 8.7],
+        ['code-editor', 7.8],
+        ['audio-service', 6.7],
+        ['node', 5.4]
+      ]
+    : [
+        ['WindowServer', 11],
+        ['Example Browser Helper (Renderer)', 9.9],
+        ['qemu-system-aarch64', 8.7],
+        ['Orca Helper (Renderer)', 7.8],
+        ['coreaudiod', 6.7],
+        ['node', 5.4]
+      ]
+  const audio = neutral ? 'audio-service' : 'coreaudiod'
+  const browser = neutral ? 'web-browser' : 'Example Browser Helper (Renderer)'
   return {
     t: now,
     impact: impact.map(([name, value]) => ({ pid: named(name), name, impact: value })),
     blockers: [
-      { pid: named('coreaudiod'), name: 'coreaudiod', kinds: ['system'] },
+      { pid: named(audio), name: audio, kinds: ['system'] },
       { pid: 36800, name: 'caffeinate', kinds: ['system'] },
-      {
-        pid: named('Example Browser Helper (Renderer)'),
-        name: 'Example Browser Helper (Renderer)',
-        kinds: ['system', 'display']
-      }
+      { pid: named(browser), name: browser, kinds: ['system', 'display'] }
     ]
   }
 }
@@ -599,11 +643,13 @@ function hello(): HelloResult {
     protocol: 1,
     run,
     platform: windows ? 'win32' : linux ? 'linux' : 'darwin',
-    cpuModel: windows
-      ? 'Intel(R) Core(TM) i7-1185G7 @ 3.00GHz'
-      : linux
-        ? 'AMD Ryzen 7 7840U w/ Radeon 780M Graphics'
-        : 'Apple M4 Pro',
+    cpuModel: neutral
+      ? null
+      : windows
+        ? 'Intel(R) Core(TM) i7-1185G7 @ 3.00GHz'
+        : linux
+          ? 'AMD Ryzen 7 7840U w/ Radeon 780M Graphics'
+          : 'Apple M4 Pro',
     cores: cores(),
     totalMemory: (windows ? 16 : linux ? 32 : 48) * GB,
     sections: sections(),
@@ -772,6 +818,26 @@ function runActions(list: string[]): void {
   if (verb === 'key') {
     const target = document.activeElement ?? document.body
     target.dispatchEvent(new KeyboardEvent('keydown', { key: argument, bubbles: true }))
+  }
+  if (verb === 'scroll') window.scrollTo(0, Number(argument) || 0)
+  if (verb === 'reveal') {
+    const card = [...document.querySelectorAll<HTMLElement>('.vt-title')]
+      .find((title) => title.textContent?.trim() === argument)
+      ?.closest('section')
+    const bar = document.querySelector<HTMLElement>('.vt-bar')
+    if (card) window.scrollTo(0, card.offsetTop - (bar?.offsetHeight ?? 0) - 10)
+  }
+  if (verb === 'measure') {
+    const root = document.documentElement
+    const wide = [...document.querySelectorAll<HTMLElement>('body *')].filter((node) => {
+      const rect = node.getBoundingClientRect()
+      return rect.width > 0 && rect.right > root.clientWidth + 0.5
+    })
+    document.body.dataset.overflow = String(root.scrollWidth - root.clientWidth)
+    document.body.dataset.wide = wide
+      .slice(0, 5)
+      .map((node) => `${node.tagName.toLowerCase()}.${node.className}`)
+      .join(' | ')
   }
   if (verb === 'hover') {
     const [index, fraction] = argument.split(':').map(Number)

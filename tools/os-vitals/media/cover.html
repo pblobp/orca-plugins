@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>OS Vitals cover</title>
+    <link rel="stylesheet" href="media.css" />
+    <style>
+      html,
+      body {
+        width: 1000px;
+        height: 625px;
+      }
+      body {
+        justify-content: space-between;
+        padding: 0 44px 0 52px;
+        box-sizing: border-box;
+      }
+      .words {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: 270px;
+      }
+      .words img {
+        width: 56px;
+        height: 56px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 40px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+      }
+      p {
+        margin: 0;
+        color: #b4b4bd;
+        font-size: 16px;
+        line-height: 1.45;
+      }
+      .panels {
+        display: flex;
+        gap: 18px;
+      }
+      .panels .panel {
+        width: 300px;
+        height: 560px;
+      }
+    </style>
+  </head>
+  <body class="dark">
+    <div class="words">
+      <img src="../../../plugins/os-vitals/media/icon.png" alt="" />
+      <h1>OS Vitals</h1>
+      <p>
+        A system monitor in the sidebar: CPU, memory, network, disk, GPU, battery and processes,
+        live.
+      </p>
+    </div>
+    <div class="panels">
+      <iframe
+        class="panel"
+        title="Overview"
+        src="../harness.html?neutral=1&amp;theme=dark&amp;act=wait:400"
+      ></iframe>
+      <iframe
+        class="panel"
+        title="Network"
+        src="../harness.html?neutral=1&amp;theme=light&amp;view=network"
+      ></iframe>
+    </div>
+  </body>
+</html>

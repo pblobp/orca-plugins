@@ -180,13 +180,15 @@ export function createProcesses(actions: PanelActions): View {
     ]),
     body
   ])
-  const countText = el('span', { attrs: { 'aria-live': 'polite' } })
+  const countText = el('span')
+  const filterAnnounce = el('span', { className: 'vt-sr', attrs: { 'aria-live': 'polite' } })
+  let announcedFilter: string | null = null
   const loadMore = el('button', {
     className: 'vt-button vt-small',
     text: 'Load more',
     attrs: { type: 'button' }
   })
-  const footer = el('div', { className: 'vt-listfoot' }, [countText, loadMore])
+  const footer = el('div', { className: 'vt-listfoot' }, [countText, filterAnnounce, loadMore])
 
   const drawerName = el('span', { className: 'vt-drawer-name' })
   const drawerPid = el('span', { className: 'vt-sub' })
@@ -257,8 +259,16 @@ export function createProcesses(actions: PanelActions): View {
     el('h2', { className: 'vt-title', text: 'Processes are not available' }),
     unsupportedText
   ])
-  const list = el('div', { className: 'vt-proclist' }, [toolbar, listNotice, table, footer, drawer])
-  const element = el('div', { className: 'vt-processes' }, [list, unsupported])
+  const tableWrap = el('div', { className: 'vt-tablewrap' }, [table])
+  const list = el('div', { className: 'vt-proclist' }, [
+    toolbar,
+    listNotice,
+    tableWrap,
+    footer,
+    drawer
+  ])
+  const viewHeading = el('h1', { className: 'vt-sr', text: 'Processes' })
+  const element = el('div', { className: 'vt-processes' }, [viewHeading, list, unsupported])
   const rows: RowView[] = []
 
   function renderHeaders(): void {
@@ -647,6 +657,13 @@ export function createProcesses(actions: PanelActions): View {
     const total = page ? page.total.toLocaleString('en-US') : '–'
     const matched = page ? page.matched.toLocaleString('en-US') : '–'
     setText(countText, filter ? `${matched} of ${total} processes` : `${total} processes`)
+    if (page && filter !== announcedFilter) {
+      announcedFilter = filter
+      setText(
+        filterAnnounce,
+        filter ? `${matched} ${page.matched === 1 ? 'process matches' : 'processes match'}` : ''
+      )
+    }
     loadMore.hidden = !page || shown.length >= page.matched || limit >= MAX_ROWS
     setText(listNotice, notice)
     listNotice.hidden = notice === ''

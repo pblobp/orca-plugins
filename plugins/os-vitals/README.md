@@ -1,15 +1,36 @@
 # OS Vitals
 
-A system monitor for Orca. A panel in the right sidebar draws live CPU, memory, network, disk, GPU,
-battery and processes, and an item in the status bar keeps the current numbers in view while you
-work.
+A system monitor for [Orca](https://github.com/stablyai/orca). A panel in the right sidebar draws
+live CPU, memory, network, disk, GPU, battery and processes, and an item in the status bar keeps
+the current numbers in view while you work. It runs on macOS and Linux; Windows and other systems
+get CPU and memory.
 
-**Status: in development.** On macOS and Linux this version reads CPU, memory, processes, network,
-disk, GPU and battery, and quits processes; macOS also measures energy impact. Windows and other
-systems get CPU and memory only. The alerts arrive in a later version; the platform table below
-says what works today.
+![The Overview in the dark theme: CPU, memory, network, disk and GPU cards](media/overview.png)
+
+## Install
+
+Once OS Vitals is listed, install it from Orca's plugin directory: open Orca's Settings, choose
+Plugins, and search for OS Vitals. With Orca's CLI:
+
+```sh
+orca plugin install pblobp.os-vitals --catalog community
+```
+
+You can also install it from this repository's own catalog:
+
+```sh
+orca plugin catalog add pblobp/orca-plugins
+orca plugin install pblobp.os-vitals
+```
+
+Before it runs any code, Orca shows the access it asks for (listed under
+[The access it asks for](#the-access-it-asks-for)) and waits for your approval. OS Vitals needs the
+Orca desktop app; Orca's browser client loads a panel as a single inlined document, and this panel is
+made of several files.
 
 ## What it shows
+
+![The Processes view with the details of one process](media/processes.png)
 
 - **Overview.** One card per part of the system. Each card's title opens its detail view, and the
   Overview control at the top of a detail view (or Escape) goes back.
@@ -24,7 +45,8 @@ says what works today.
     On Windows it is used and free, where free is what Windows reports as available.
   - Network: download and upload rates over time, and the interface that carries the default route.
   - Disk: read and write rates over time, and the startup disk's used and free space.
-  - GPU: GPU use over time and the GPU memory in use. Hidden on a Mac that reports no GPU reading.
+  - GPU: GPU use over time and the GPU memory in use. Hidden on a computer that reports no GPU
+    reading.
   - Battery: charge and time left. A Mac without a battery shows an Energy card here instead.
   - The five processes using the most CPU, with a link to the full list.
 - **Detail views.**
@@ -46,30 +68,68 @@ says what works today.
   user, parent, start time, threads, CPU time, memory and command line, and to quit it. Escape
   closes the details.
 - **Status bar.** `CPU 23% · MEM 61%`, updated at most every 5 seconds and only when a number
-  changes. Its tooltip shows the load average and memory. Pressing it opens the panel.
+  changes. Its tooltip shows the load average and memory, and why it is coloured when an alert is
+  on. Pressing it opens the panel.
+
+![The CPU and Memory views in the light theme](media/details.png)
 
 Point at a chart to read the values at that moment; a line marks the moment and a box lists the
 time and each value. A chart can also take keyboard focus (Tab): the left and right arrow keys move
 the marker one reading at a time, Page Up and Page Down ten, Home and End to the oldest and newest,
-and Escape hides it. A screen reader reads each chart's current values and its scale.
+and Escape hides it. A screen reader reads each chart's current values and its scale. The two
+views at the top are a tab list: the left and right arrow keys move between them.
 
 Every chart has one scale, labeled at its top. CPU and GPU charts run from 0 to 100%, memory from 0
 to the total. Network and disk charts pick the next round value above the highest reading in view,
 so a burst raises the scale, and the label says so, instead of being cut off.
 
-Sizes and rates use binary units: 1 KB is 1,024 bytes, 1 MB is 1,024 KB and 1 GB is 1,024 MB, the
-way Activity Monitor and `top` count memory. Disk sizes therefore read a little lower than Finder's,
-which counts 1 GB as 1,000,000,000 bytes.
+**Units.** Sizes and rates use binary units: 1 KB is 1,024 bytes, 1 MB is 1,024 KB and 1 GB is
+1,024 MB, the way Activity Monitor and `top` count memory. Disk sizes therefore read a little lower
+than Finder's, which counts 1 GB as 1,000,000,000 bytes.
+
+The pause button at the top stops the panel's readings and shows when the last one was taken; the
+status bar item and the alerts keep running. Press Resume to carry on.
+
+### Alerts
+
+- **Memory** (on by default): when memory pressure is critical, or memory in use stays at or above
+  the limit you set (92% by default) for 30 seconds, OS Vitals shows one desktop notification, such
+  as "OS Vitals: memory is critical. 96% of memory is in use. video-encoder is using 9.65 GB." It
+  reads the process list once, at that moment, to name the process using the most memory. Then the
+  alert stays silent for 10 minutes. The status bar item turns red while memory stays high, and
+  amber while memory pressure is elevated.
+- **CPU** (off by default): CPU at or above the limit you set (90% by default) for a minute turns the
+  status bar item amber. It sends no notification.
+
+If Orca does not show a notification (for example, when notifications are not allowed for the
+plugin), OS Vitals writes one line to its log and does not try again until the next alert.
+
+### When it reads what
 
 The panel asks its worker for new readings every 2 seconds while it is open (the refresh interval
-setting changes this). When you switch to another sidebar tab or close the sidebar, Orca removes
-the panel and the polling stops with it. While the panel is open the worker also reads network every refresh, disk I/O and GPU every second
-refresh (every refresh while the Disk or GPU view is open), and the disk space, battery and default
-route every 30 seconds. While it is closed it keeps only CPU and memory, so the network, disk and
-GPU charts start empty when the panel opens and fill in from then on. The process list is read
-only while the panel shows it: every 2 seconds in the Processes view, every 4 seconds for a top
-five. Energy impact and the apps keeping the computer awake are read every 10 seconds, and only
-while the Energy view is open.
+setting changes this). When you switch to another sidebar tab or close the sidebar, Orca removes the
+panel and the polling stops with it. While the panel is open the worker also reads network every
+refresh, disk I/O and GPU every second refresh (every refresh while the Disk or GPU view is open),
+and the disk space, battery and default route every 30 seconds. While it is closed it keeps only CPU
+and memory, every 5 seconds, for the status bar and the alerts, so the network, disk and GPU charts
+start empty when the panel opens and fill in from then on. The process list is read only while the
+panel shows it: every 2 seconds in the Processes view, every 4 seconds for a top five. Energy impact
+and the apps keeping the computer awake are read every 10 seconds, and only while the Energy view is
+open. With background sampling off, nothing runs while the panel is closed: no timers and no
+programs.
+
+### What it costs
+
+Measured on an Apple M4 Pro with about 1,050 processes, at the default 2-second refresh. The worker
+is the plugin's own Node process; the programs are the system tools it runs, from their measured
+CPU time per run and how often they run.
+
+| State                                 | Worker     | Programs                            | Total, % of one core |
+| ------------------------------------- | ---------- | ----------------------------------- | -------------------- |
+| Panel open on the Overview            | 0.42%      | about 1.9%                          | about 2.3%           |
+| Panel open on the Energy view         | about 0.6% | about 7.8% (`top` takes most of it) | about 8.4%           |
+| Panel closed, background sampling on  | 0.08%      | about 0.05%                         | about 0.13%          |
+| Panel closed, background sampling off | 0%         | none                                | 0%                   |
 
 ## The access it asks for
 
@@ -79,7 +139,7 @@ When you install OS Vitals, Orca asks you to approve this list.
 | -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Runs a worker (`trusted-worker`) | The panel cannot read the system. A Node process does it for the panel, as your user, with no administrator rights. Because the plugin has a status bar item, Orca keeps the worker running while the plugin is enabled |
 | `settings:own`                   | Reads the settings below, which you change in Orca's Settings                                                                                                                                                           |
-| `notifications:show`             | Shows the current numbers when the panel cannot be opened from the status bar. Later versions also use it for the memory alert                                                                                          |
+| `notifications:show`             | Shows the memory alert, and the current numbers when the panel cannot be opened from the status bar                                                                                                                     |
 | Panel `OS Vitals`                | The panel in the right sidebar                                                                                                                                                                                          |
 | Status bar item `OS Vitals`      | The CPU and memory readings in the status bar                                                                                                                                                                           |
 | Command `OS Vitals: Open panel`  | Opens the panel. The status bar item runs it when you press it                                                                                                                                                          |
@@ -120,12 +180,12 @@ rights.
 
 Process names and command lines are shown in the panel as plain text and never leave your machine.
 
-### What it never does
+### Privacy: what it never does
 
 - No network access. It connects to nothing, and the panel's frame has no network either.
-- No telemetry, analytics or data collection. Readings stay in the worker's memory for the history
-  length you choose and are gone when the worker stops.
-- It writes no files.
+- No telemetry, analytics or data collection. Nothing leaves your machine. Readings stay in the
+  worker's memory for the history length you choose and are gone when the worker stops.
+- It writes no files. The panel remembers only which view you used last, in its own browser storage.
 - It never signals a process you have not confirmed in the panel.
 
 ## Quitting a process
@@ -166,21 +226,22 @@ protected: stopping a runaway one is the point.
 
 ## Settings
 
-| Setting                          | Default        | What it does                                                                                                                  |
-| -------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Refresh interval                 | 2 seconds      | How often the panel updates while it is open: 1, 2 or 5 seconds                                                               |
-| History length                   | 5 minutes      | How far back the charts reach: 1, 5 or 15 minutes                                                                             |
-| Status bar                       | CPU and memory | CPU and memory, CPU, memory, or hidden                                                                                        |
-| Sample while the panel is closed | On             | Reads CPU and memory every 5 seconds for the status bar while the panel is closed. Off, it reads only while the panel is open |
-| Memory alert                     | On             | Not built yet                                                                                                                 |
-| Memory alert limit (%)           | 92             | Not built yet                                                                                                                 |
-| CPU alert                        | Off            | Not built yet                                                                                                                 |
-| CPU alert limit (%)              | 90             | Not built yet                                                                                                                 |
-| Open on                          | Last used      | The view the panel opens on: the last one you used, Overview, or Processes                                                    |
+Change them in Orca's Settings, under OS Vitals. Each one applies at once, without a restart. A value
+outside its allowed range is ignored and the default is used.
+
+| Setting                          | Default        | What it does                                                                                                                                                                             |
+| -------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Refresh interval                 | 2 seconds      | How often the panel updates while it is open: 1, 2 or 5 seconds                                                                                                                          |
+| History length                   | 5 minutes      | How far back the charts reach: 1, 5 or 15 minutes. A shorter history keeps the newest readings that fit                                                                                  |
+| Status bar                       | CPU and memory | CPU and memory, CPU, memory, or hidden                                                                                                                                                   |
+| Sample while the panel is closed | On             | Reads CPU and memory every 5 seconds for the status bar and the alerts while the panel is closed. Off, nothing runs while the panel is closed, and the alerts work only while it is open |
+| Memory alert                     | On             | The memory notification and the red status bar item described under [Alerts](#alerts)                                                                                                    |
+| Memory alert limit (%)           | 92             | Memory in use, from 70 to 99%, that counts as high                                                                                                                                       |
+| CPU alert                        | Off            | Turns the status bar item amber when CPU stays high for a minute                                                                                                                         |
+| CPU alert limit (%)              | 90             | CPU use, from 50 to 100%, that counts as high                                                                                                                                            |
+| Open on                          | Last used      | The view the panel opens on: the last one you used, Overview, or Processes                                                                                                               |
 
 ## Platforms
-
-In development: the table shows this version, not the planned 1.0.
 
 | Feature                               | macOS                                          | Linux                                                                | Windows and others                        |
 | ------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------- |
@@ -193,20 +254,33 @@ In development: the table shows this version, not the planned 1.0.
 | Processes and their details           | Yes                                            | Yes, from `/proc`                                                    | No                                        |
 | Quitting a process                    | Yes                                            | Yes                                                                  | No                                        |
 | Status bar item                       | Yes                                            | Yes                                                                  | Yes                                       |
+| Memory and CPU alerts                 | Yes                                            | Yes                                                                  | Yes, from used memory and CPU             |
 | Opening the panel from the status bar | Yes                                            | Yes                                                                  | No: shows a notification with the numbers |
 | Network, disk I/O and disk space      | Yes                                            | Yes                                                                  | No                                        |
 | GPU use and memory                    | Apple silicon and Macs that report it          | NVIDIA (with `nvidia-smi`) and AMD; not Intel                        | No                                        |
 | Battery                               | Yes                                            | Yes, with the power it draws                                         | No                                        |
 | Energy impact and what keeps it awake | Yes                                            | No: Linux has no per-process energy measure                          | No                                        |
-| Alerts                                | Not yet                                        | Not yet                                                              | Not yet                                   |
 
-The Linux readers are tested against `/proc` and `/sys` files from real Debian and Alpine systems and
-run in CI on Ubuntu. NVIDIA and AMD GPU readings are tested only against sample output; they have
-not been checked on real GPUs. The panel itself has been checked inside Orca on macOS only; its
-code is the same on every system.
+### What was verified where
 
-OS Vitals needs the Orca desktop app. Orca's browser client loads a panel as a single inlined
-document, and this panel is made of several files.
+- **macOS:** the panel inside Orca 1.4.261, every view, on an Apple M4 Pro; the readers, the quit
+  flow (on processes started for the test) and the cost above, on the same Mac.
+- **Linux:** the readers and the smoke test in real Debian and Alpine containers (including a
+  container that sees the host's 200 kernel threads), and in CI on Ubuntu. The panel has not been
+  checked inside Orca on Linux; its code is the same on every system.
+- **NVIDIA and AMD GPUs:** from sample output only; not checked on real GPUs.
+- **Windows:** CPU and memory through the smoke test in CI; the panel has not been checked inside
+  Orca on Windows.
+
+### Known limits
+
+- No per-process network use: `nettop` takes about 5 seconds, too slow for a live view.
+- No temperatures or fan speeds: macOS needs administrator rights or private interfaces for them.
+- No Wi-Fi or Ethernet label on interfaces: telling them apart needs another program.
+- Desktop app only, and tested on Orca 1.4.261.
+- History lives in the worker's memory and starts over when Orca restarts the plugin.
+- A section whose program or file keeps failing turns itself off; the Overview says which, and it
+  comes back when Orca restarts the plugin.
 
 ## Development
 
@@ -229,7 +303,8 @@ energy impact), `?theme=light` the light theme, `?view=` a view (`processes`, `c
 `disk`, `gpu` or `energy`), `?energy=wait` keeps the Energy view measuring, and `?act=` runs steps
 after load (`tab:` or `click:` a button by its text, `filter:<text>`, `select:<name>`,
 `focus:<name>`, `key:<key>`, `hover:<chart>:<fraction>`, `chart:<chart>` to focus a chart,
-`wait:<ms>`, `probe`, separated by commas). The `t` key switches theme.
+`scroll:<px>`, `reveal:<card title>`, `measure`, `wait:<ms>`, `probe`, separated by commas).
+`?neutral=1` uses made-up process, CPU and volume names, for the listing images. The `t` key switches theme.
 `tools/os-vitals/gallery.html` shows several widths and states side by side,
 `tools/os-vitals/gallery-views.html` the Overview and every detail view in both themes,
 `tools/os-vitals/gallery-states.html` chart hover and keyboard, 220 px, no battery, no GPU, a
@@ -237,3 +312,8 @@ spike and a freshly opened panel, `tools/os-vitals/gallery-platforms.html` the L
 scenarios, and `tools/os-vitals/gallery-quit.html` every step of quitting a
 process. The fake quits `node` at once, keeps `vite` running until it is forced, and refuses `tsc`
 (`changed`), `agent` (`not_permitted`) and `watchman` (`gone`).
+
+The listing images in `media/` are rendered from the harness, with the real panel code and made-up
+data, by `node tools/os-vitals/make-media.ts` while `tools/os-vitals/serve.ts` runs. The pages it
+renders are in `tools/os-vitals/media/`; pass file names (such as `cover.png`) to render only those.
+It uses Google Chrome at its default macOS path, or the one in `CHROME`.

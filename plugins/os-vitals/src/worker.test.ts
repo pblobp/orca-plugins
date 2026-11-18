@@ -111,6 +111,7 @@ function fakeSystem(extra: RawProcess[] = [], extras = false) {
     energy: 0
   }
   let counter = 0
+  let memory: MemoryReading = MEMORY
   const identities = new Map<number, Identity | null>()
   let killError: string | null = null
   let cpuTime = 10
@@ -241,7 +242,7 @@ function fakeSystem(extra: RawProcess[] = [], extras = false) {
     },
     assertions: async () =>
       extras ? [{ pid: 300, name: 'Example App', type: 'NoIdleSleepAssertion' }] : null,
-    memory: async () => MEMORY,
+    memory: async () => memory,
     async processes() {
       calls.processes += 1
       return listing()
@@ -287,6 +288,9 @@ function fakeSystem(extra: RawProcess[] = [], extras = false) {
     failKill(code: string | null) {
       killError = code
     },
+    setMemory(next: MemoryReading) {
+      memory = next
+    },
     setStep(next: CpuTimes) {
       Object.assign(step, next)
     }
@@ -331,6 +335,7 @@ async function setup(
     program?: string | null
     extra?: RawProcess[]
     refuseStatusBar?: boolean
+    refuseNotifications?: boolean
     extras?: boolean
   } = {}
 ): Promise<Setup> {
@@ -357,9 +362,16 @@ async function setup(
   let api: OrcaWorkerApi | null = null
   const host = mockHost({
     settings: options.settings ?? {},
-    results: options.refuseStatusBar
-      ? { 'statusBar.update': hostError('consent_required', 'not enabled with current consent') }
-      : {}
+    results: {
+      ...(options.refuseStatusBar
+        ? { 'statusBar.update': hostError('consent_required', 'not enabled with current consent') }
+        : {}),
+      ...(options.refuseNotifications
+        ? {
+            'notifications.show': hostError('consent_required', 'not enabled with current consent')
+          }
+        : { 'notifications.show': { delivered: true } })
+    }
   })
   const worker = await mountWorker(
     {
@@ -909,4 +921,129 @@ test('deactivate stops every timer and the provider', async () => {
   await worker.deactivate()
   assert.equal(time.pending(), 0)
   assert.equal(system.calls.disposed, 1)
+})
+
+const HIGH: MemoryReading = { ...MEMORY, used: 15.4 * GB, free: 0.2 * GB, cached: 0.4 * GB }
+
+function notices(host: MockHost): unknown[] {
+  return host.callsOf('notifications.show')
+}
+
+test('memory above the alert limit for 30 s shows one notification and turns the status bar red', async () => {
+  const { worker, host, time, system } = await setup()
+  system.setMemory(HIGH)
+  await time.advance(25_000)
+  assert.deepEqual(notices(host), [])
+  await time.advance(15_000)
+  assert.deepEqual(notices(host), [
+    {
+      title: 'OS Vitals: memory is critical',
+      body: '96% of memory is in use. Example App is using 2 GB.'
+    }
+  ])
+  const last = statusCalls(host).at(-1)
+  assert.equal(last?.tone, 'danger')
+  assert.match(String(last?.tooltip), /Memory has been at 96% for over 30 seconds/)
+  await time.advance(5 * 60_000)
+  assert.equal(notices(host).length, 1)
+  assert.deepEqual(worker.refusals, [])
+  await worker.deactivate()
+})
+
+test('a refused notification is logged once, not retried, and sampling carries on', async () => {
+  const { worker, host, time, system } = await setup({ refuseNotifications: true })
+  system.setMemory(HIGH)
+  await time.advance(60_000)
+  const sent = statusCalls(host).length
+  assert.equal(notices(host).length, 1)
+  await time.advance(5 * 60_000)
+  assert.equal(notices(host).length, 1)
+  assert.ok(statusCalls(host).length >= sent)
+  system.setMemory(MEMORY)
+  await time.advance(10_000)
+  assert.equal(statusCalls(host).at(-1)?.tone, 'neutral')
+  assert.equal(
+    worker.logs.filter((line) => line.includes('could not show its memory alert')).length,
+    1
+  )
+  await worker.deactivate()
+})
+
+test('every setting reacts live, and values outside their range are ignored', async () => {
+  const { worker, host, time, system, orca } = await setup()
+  const set = async (key: string, value: string | number | boolean) => {
+    await orca().settings.set(key, value)
+    await settle()
+    await settle()
+  }
+  const hello = async () => (await worker.request('os-vitals.hello')) as HelloResult
+  await time.advance(5000)
+
+  await set('refreshSeconds', 5)
+  assert.equal((await hello()).intervalMs, 5000)
+  await set('refreshSeconds', 3)
+  assert.equal((await hello()).intervalMs, 2000)
+
+  const first = (await worker.request('os-vitals.poll', {})) as PollResult
+  for (let i = 0; i < 40; i++) {
+    await time.advance(2000)
+    await worker.request('os-vitals.poll', { since: first.seq, run: first.run })
+  }
+  await set('historyMinutes', 1)
+  const short = (await worker.request('os-vitals.poll', {})) as PollResult
+  assert.equal((await hello()).historyMs, 60_000)
+  assert.ok(short.samples.length >= 25 && short.samples.length <= 31, `${short.samples.length}`)
+  await set('historyMinutes', 15)
+  const kept = (await worker.request('os-vitals.poll', {})) as PollResult
+  assert.equal(kept.samples[0].seq, short.samples[0].seq)
+
+  await time.advance(10_000)
+  await set('statusBar', 'cpu')
+  await time.advance(6000)
+  assert.equal(statusCalls(host).at(-1)?.text, 'CPU 30%')
+  await set('statusBar', 'memory')
+  await time.advance(6000)
+  assert.equal(statusCalls(host).at(-1)?.text, 'MEM 50%')
+  await set('statusBar', 'hidden')
+  assert.deepEqual(statusCalls(host).at(-1), { id: 'os-vitals', visible: false })
+
+  await set('memoryAlertPercent', 150)
+  system.setMemory(HIGH)
+  await time.advance(40_000)
+  assert.equal(notices(host).length, 1)
+  system.setMemory(MEMORY)
+  await set('memoryAlert', false)
+  system.setMemory(HIGH)
+  await time.advance(11 * 60_000)
+  assert.equal(notices(host).length, 1)
+  await set('memoryAlert', true)
+  await set('memoryAlertPercent', 99)
+  await time.advance(11 * 60_000)
+  assert.equal(notices(host).length, 1)
+  system.setMemory(MEMORY)
+
+  await set('statusBar', 'cpu-memory')
+  await set('cpuAlert', true)
+  await set('cpuAlertPercent', 50)
+  system.setStep({ user: 900, nice: 0, sys: 100, idle: 0, irq: 0 })
+  await time.advance(70_000)
+  assert.equal(statusCalls(host).at(-1)?.tone, 'warning')
+  assert.match(String(statusCalls(host).at(-1)?.tooltip), /CPU has been above 50%/)
+  await set('cpuAlert', false)
+  await time.advance(6000)
+  assert.equal(statusCalls(host).at(-1)?.tone, 'neutral')
+
+  await set('defaultView', 'processes')
+  assert.equal((await hello()).defaultView, 'processes')
+  await set('defaultView', 'sideways')
+  assert.equal((await hello()).defaultView, 'last')
+
+  await set('backgroundSampling', false)
+  await time.advance(30_000)
+  const reads = system.calls.processes
+  assert.equal(time.pending(), 0)
+  await time.advance(60_000)
+  assert.equal(system.calls.processes, reads)
+  assert.deepEqual(worker.refusals, [])
+  await worker.deactivate()
 })

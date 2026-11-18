@@ -7,7 +7,7 @@
   --vt-warn: #fab219;
   --vt-crit: #e05252;
   --vt-fg2: var(--orca-muted-foreground);
-  --vt-fg3: color-mix(in srgb, var(--orca-muted-foreground) 78%, var(--orca-background));
+  --vt-fg3: color-mix(in srgb, var(--orca-muted-foreground) 96%, var(--orca-background));
   --vt-grid: color-mix(in srgb, var(--orca-border) 75%, transparent);
   --vt-radius: var(--orca-radius, 8px);
 }
@@ -100,7 +100,11 @@ a:focus-visible {
   color: var(--orca-foreground);
 }
 
-.vt-tab[aria-current='page'] {
+.vt-paused {
+  border-left-color: var(--orca-ring);
+}
+
+.vt-tab[aria-selected='true'] {
   background: var(--orca-card);
   border-color: var(--orca-border);
   color: var(--orca-card-foreground);
@@ -536,17 +540,47 @@ a:focus-visible {
   white-space: nowrap;
 }
 
+.vt-app.vt-fill {
+  height: 100vh;
+  min-height: 0;
+}
+
 .vt-content[data-view='processes'] {
   display: flex;
+  flex: 1 1 0;
   flex-direction: column;
+  min-height: 0;
   padding: 0;
 }
 
 .vt-processes,
 .vt-proclist {
   display: flex;
-  flex: 1 0 auto;
+  flex: 1 1 0;
   flex-direction: column;
+  min-height: 0;
+}
+
+.vt-proclist > * {
+  flex: none;
+}
+
+.vt-proclist > .vt-tablewrap {
+  flex: 0 1 auto;
+  min-height: 72px;
+  overflow: auto;
+}
+
+.vt-proclist > .vt-drawer {
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+.vt-tablewrap thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--orca-background);
 }
 
 .vt-processes > .vt-notice {
@@ -706,9 +740,8 @@ a:focus-visible {
 }
 
 .vt-drawer {
-  position: sticky;
-  bottom: 0;
   display: flex;
+  overflow: auto;
   flex-direction: column;
   gap: 12px;
   margin-top: auto;
