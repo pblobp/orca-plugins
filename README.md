@@ -13,11 +13,13 @@ license, and collect no data about you.
 
 ## Plugins
 
-| Plugin                                   | What it adds                                                                                                                                | Status                  |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| [OS Vitals](plugins/os-vitals/README.md) | A system monitor in the right sidebar and the status bar: CPU, memory, network, disk, GPU, battery and a process table, with a memory alert | 1.0.0, not released yet |
+| Plugin                                   | What it adds                                                                                                                                | Status |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| [OS Vitals](plugins/os-vitals/README.md) | A system monitor in the right sidebar and the status bar: CPU, memory, network, disk, GPU, battery and a process table, with a memory alert | 1.0.0  |
 
-No plugin is released yet. Each row gets an install link when its plugin is released.
+OS Vitals installs as `pblobp.os-vitals`; see [Install](#install). The Orca directory lists a new
+release on its own schedule, and can hold one for review, so a release may be installable from this
+repository's catalog before it shows there.
 
 ## Screenshots
 
