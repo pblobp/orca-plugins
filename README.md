@@ -9,6 +9,8 @@ Plugins for the [Orca](https://github.com/stablyai/orca) desktop app. Each plugi
 folder under `plugins/` and has its own version. All of them are free, open source under the MIT
 license, and collect no data about you.
 
+![OS Vitals, a system monitor in Orca's sidebar: the Overview in the dark theme and the Network view in the light theme](plugins/os-vitals/media/cover.png)
+
 ## Plugins
 
 | Plugin                                   | What it adds                                                                                                                                | Status                  |
@@ -17,7 +19,25 @@ license, and collect no data about you.
 
 No plugin is released yet. Each row gets an install link when its plugin is released.
 
-![OS Vitals: the Overview with CPU, memory, network, disk and GPU cards](plugins/os-vitals/media/overview.png)
+## Screenshots
+
+OS Vitals, drawn by the panel's own code with sample data.
+
+The Overview: CPU with its cores, memory, network, disk, GPU and battery.
+
+![The Overview in the dark theme, with CPU, memory, network, disk and GPU cards](plugins/os-vitals/media/overview.png)
+
+The Processes view: sort, filter, and the details of one process, with Quit.
+
+![The Processes view in the dark theme, with the details drawer open for one process](plugins/os-vitals/media/processes.png)
+
+The CPU and Memory views, in the light theme. Every chart has a crosshair and tooltip.
+
+![The CPU view with a chart tooltip, and the Memory view, in the light theme](plugins/os-vitals/media/details.png)
+
+The Network and Energy views.
+
+![The Network view with a chart tooltip, and the Energy view with battery and energy impact](plugins/os-vitals/media/network.png)
 
 ## Install
 
