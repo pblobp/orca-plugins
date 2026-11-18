@@ -20,9 +20,10 @@ has passed under the new Actions policy:
 1. `scripts/apply-repo-settings.sh --settings`: repository options, the Actions policy, the
    security features and the issue labels.
 2. Re-run CI and CodeQL on `main`, and continue only when both pass.
-3. `scripts/apply-repo-settings.sh --rulesets`: the branch ruleset for `main` and the two tag
-   rulesets. Add `--with-tag-check` to use the tag ruleset that also requires `ci-ok` (see below).
-4. `scripts/apply-repo-settings.sh --read-back`, which must show no differences.
+3. `scripts/apply-repo-settings.sh --rulesets --with-tag-check`: the branch ruleset for `main` and
+   the two tag rulesets. `--with-tag-check` selects the tag ruleset that also requires `ci-ok`. It
+   is the one applied to this repository (see below).
+4. `scripts/apply-repo-settings.sh --read-back --with-tag-check`, which must show no differences.
 
 Both phases are safe to run again. A ruleset that already exists, found by name, is updated in
 place.
@@ -63,10 +64,17 @@ There are two tag rulesets, because a bypass list applies to a whole ruleset.
 | release tags: who may create       | `tags-create.json`                                        | Creation is restricted                                                                                              | The repository admin role, which here is only the owner |
 | release tags: immutable and tested | `tags-immutable.json` or `tags-immutable-with-check.json` | Update, deletion and force-update are blocked. The `-with-check` variant also requires `ci-ok` on the tagged commit | Nobody                                                  |
 
-Whether a required status check really stops a tag on an untested commit is not documented. It is
-tested in a throwaway repository first; `tags-immutable-with-check.json` is applied only if the test
-shows it works. GitHub offers no rule that limits which commit a tag may point at, and tag-name
-patterns need an Enterprise plan, so `scripts/tag-release.sh` checks both.
+GitHub does not document whether a required status check stops a tag on an untested commit, so it
+was tested in a throwaway repository with these rulesets:
+
+- A tag on a commit with no passing `ci-ok` was refused: "Required status check "ci-ok" is expected".
+- The owner's tag on a commit that passed `ci-ok` was accepted.
+- Deleting a release tag was refused.
+- Moving a release tag was not tried.
+
+So `tags-immutable-with-check.json` is the variant applied here. GitHub offers no rule that limits
+which commit a tag may point at, and tag-name patterns need an Enterprise plan, so
+`scripts/tag-release.sh` checks both.
 
 ## GitHub Actions
 
