@@ -1,0 +1,15 @@
+sysfs /sys sysfs rw,nosuid,nodev,noexec,relatime 0 0
+proc /proc proc rw,nosuid,nodev,noexec,relatime 0 0
+udev /dev devtmpfs rw,nosuid,relatime,size=8110000k 0 0
+tmpfs /run tmpfs rw,nosuid,nodev,noexec,relatime,size=1630308k,mode=755 0 0
+/dev/nvme0n1p2 / ext4 rw,relatime,errors=remount-ro 0 0
+tmpfs /dev/shm tmpfs rw,nosuid,nodev 0 0
+cgroup2 /sys/fs/cgroup cgroup2 rw,nosuid,nodev,noexec,relatime 0 0
+/dev/loop0 /snap/core22/1234 squashfs ro,nodev,relatime 0 0
+/dev/nvme0n1p1 /boot/efi vfat rw,relatime,fmask=0077,dmask=0077 0 0
+/dev/mapper/home /home ext4 rw,relatime 0 0
+/dev/nvme0n1p2 /srv/shared ext4 rw,relatime,errors=remount-ro 0 0
+/dev/sda1 /run/media/user/USB\040Drive vfat rw,nosuid,nodev,relatime 0 0
+/dev/sda1 /mnt/usb vfat rw,nosuid,nodev,relatime 0 0
+overlay /var/lib/docker/overlay2/0a1b2c3d/merged overlay rw,relatime 0 0
+server.host.local:/export /mnt/nfs nfs4 rw,relatime 0 0

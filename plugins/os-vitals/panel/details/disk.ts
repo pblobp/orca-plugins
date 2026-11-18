@@ -53,7 +53,7 @@ export function createDiskView(actions: PanelActions) {
       const bar = meter()
       const used = el('span', { className: 'vt-sub' })
       const element = el('div', { className: 'vt-volume' }, [
-        el('div', { className: 'vt-row' }, [
+        el('div', { className: 'vt-kv' }, [
           el('span', { className: 'vt-key' }, [name, kind]),
           free
         ]),

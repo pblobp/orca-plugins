@@ -1,3 +1,4 @@
+import { macInterface } from '../interfaces.ts'
 import type { InterfaceKind } from '../protocol.ts'
 
 export type InterfaceCounters = {
@@ -13,34 +14,12 @@ const COUNT = /^\d+$/
 const ROUTE_INTERFACE = /^\s*interface:\s*(\S+)\s*$/m
 const COLUMNS = ['Ipkts', 'Ibytes', 'Opkts', 'Obytes'] as const
 
-const KIND_PREFIXES: readonly [string, InterfaceKind][] = [
-  ['lo', 'loopback'],
-  ['utun', 'tunnel'],
-  ['gif', 'tunnel'],
-  ['stf', 'tunnel'],
-  ['ipsec', 'tunnel'],
-  ['ppp', 'tunnel'],
-  ['bridge', 'bridge'],
-  ['awdl', 'wireless-helper'],
-  ['llw', 'wireless-helper'],
-  ['anpi', 'wireless-helper'],
-  ['ap', 'wireless-helper']
-]
-
-const UNCOUNTED = new Set(['lo', 'bridge', 'utun', 'gif', 'stf', 'awdl', 'llw', 'anpi', 'ap'])
-
-function family(name: string): string {
-  return name.replace(/\d+$/, '')
-}
-
 export function interfaceKind(name: string): InterfaceKind {
-  const base = family(name)
-  for (const [prefix, kind] of KIND_PREFIXES) if (base === prefix) return kind
-  return null
+  return macInterface(name).kind
 }
 
 export function countsInTotals(name: string): boolean {
-  return !UNCOUNTED.has(family(name))
+  return macInterface(name).counted
 }
 
 export function parseNetstat(text: string): InterfaceCounters[] | null {

@@ -105,7 +105,7 @@ function drawGrid(surface: Surface, palette: Palette, fractions: readonly number
   ctx.restore()
 }
 
-function split<T extends { t: number }>(
+export function split<T extends { t: number }>(
   items: readonly T[],
   gapMs: number,
   keep: (item: T) => boolean
@@ -113,12 +113,13 @@ function split<T extends { t: number }>(
   const out: T[][] = []
   let current: T[] = []
   for (const item of items) {
+    if (!keep(item)) continue
     const previous = current[current.length - 1]
-    if (!keep(item) || (previous && item.t - previous.t > gapMs)) {
-      if (current.length > 0) out.push(current)
+    if (previous && item.t - previous.t > gapMs) {
+      out.push(current)
       current = []
     }
-    if (keep(item)) current.push(item)
+    current.push(item)
   }
   if (current.length > 0) out.push(current)
   return out

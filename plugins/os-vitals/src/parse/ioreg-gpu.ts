@@ -32,7 +32,8 @@ function readBlock(lines: readonly string[]): GpuReading | null {
     utilization,
     renderer: percentOf(stats, 'Renderer Utilization %'),
     inUse: bytesOf(stats, 'In use system memory'),
-    allocated: bytesOf(stats, 'Alloc system memory')
+    allocated: bytesOf(stats, 'Alloc system memory'),
+    dedicated: false
   }
 }
 

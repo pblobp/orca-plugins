@@ -49,13 +49,14 @@ export function createProcessTracker(): ProcessTracker {
           ppid: entry.ppid,
           uid: entry.uid,
           user: entry.user,
-          name: processName(entry.comm),
+          name: entry.name ?? processName(entry.comm),
           path: entry.comm,
           cpu: Number.isFinite(cpu) ? round1(cpu) : 0,
           memory: entry.rss,
           cpuTime: entry.cpuTime,
           startedAt: entry.startedAt,
-          start: entry.start
+          start: entry.start,
+          ...(entry.kernel ? { kernel: true } : {})
         }
       })
       previous = next

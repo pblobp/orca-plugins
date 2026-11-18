@@ -32,6 +32,7 @@ type Scenario =
   | 'nogpu'
   | 'fresh'
   | 'spike'
+  | 'linux'
 type Theme = 'dark' | 'light'
 type Handler = (payload: unknown) => unknown
 
@@ -47,7 +48,8 @@ const SCENARIOS: readonly Scenario[] = [
   'desktop',
   'nogpu',
   'fresh',
-  'spike'
+  'spike',
+  'linux'
 ]
 const VIEWS = ['overview', 'processes', 'cpu', 'memory', 'network', 'disk', 'gpu', 'energy']
 
@@ -144,7 +146,8 @@ function random(seed: number): () => number {
 }
 
 const windows = scenario === 'windows'
-const CORE_COUNT = windows ? 8 : 14
+const linux = scenario === 'linux'
+const CORE_COUNT = windows ? 8 : linux ? 16 : 14
 const STEP_MS = 2000
 const HISTORY_MS = 5 * 60 * 1000
 const GB = 1024 ** 3
@@ -170,7 +173,23 @@ const clamp = (value: number, low: number, high: number) => Math.min(high, Math.
 const round1 = (value: number) => Math.round(value * 10) / 10
 
 function memoryReading(): MemoryReading {
-  const total = (windows ? 16 : 48) * GB
+  const total = (windows ? 16 : linux ? 32 : 48) * GB
+  if (linux) {
+    const used = 11.6 * GB + next() * 0.2 * GB
+    return {
+      total,
+      used,
+      app: null,
+      wired: null,
+      compressed: null,
+      buffers: 0.4 * GB,
+      cached: 9.8 * GB,
+      free: total - used - 10.2 * GB - 1.1 * GB,
+      swapUsed: 1 * GB,
+      swapTotal: 8 * GB,
+      pressure: 'normal'
+    }
+  }
   if (windows) {
     const used = 9.7 * GB + next() * 0.2 * GB
     return {
@@ -179,6 +198,7 @@ function memoryReading(): MemoryReading {
       app: null,
       wired: null,
       compressed: null,
+      buffers: null,
       cached: null,
       free: total - used,
       swapUsed: null,
@@ -198,6 +218,7 @@ function memoryReading(): MemoryReading {
     app,
     wired,
     compressed,
+    buffers: null,
     cached,
     free: total - used - cached,
     swapUsed: (critical ? 3.4 : 1.2) * GB,
@@ -293,6 +314,30 @@ const PROCESS_TABLE: ProcessRow[] = [
   }
 })
 
+if (linux) {
+  const bootMs = Math.floor((Date.now() - 3 * 86400 * 1000) / 1000) * 1000
+  for (const [pid, name, cpu] of [
+    [2, 'kthreadd', 0],
+    [212, 'kworker/u16:2-events_unbound', 1.8],
+    [87, 'ksoftirqd/3', 0.4]
+  ] as const) {
+    PROCESS_TABLE.push({
+      pid,
+      ppid: pid === 2 ? 0 : 2,
+      uid: 0,
+      user: 'root',
+      name,
+      path: '',
+      cpu,
+      memory: 0,
+      cpuTime: 30,
+      startedAt: bootMs,
+      start: String(pid * 10),
+      kernel: true
+    })
+  }
+}
+
 const ORCA_PID = PROCESS_TABLE.find((row) => row.name === 'Orca')?.pid ?? 2
 const QUIT_CONTEXT = {
   uid: 501,
@@ -383,8 +428,11 @@ function generateUntil(now: number): void {
       cores: coreLoad.map(round1),
       memory: memoryReading(),
       net: active ? { down: Math.round(spike ? 48 * MB : down), up: Math.round(up) } : null,
-      disk: active ? { read: Math.round(read), write: Math.round(write) } : null,
-      gpu: active && hasGpu ? round1(gpuUse) : null
+      disk:
+        active && samples.length % 2 === 0
+          ? { read: Math.round(read), write: Math.round(write) }
+          : null,
+      gpu: active && hasGpu && samples.length % 2 === 0 ? round1(gpuUse) : null
     })
     t += STEP_MS
   }
@@ -402,7 +450,7 @@ function sections(): Sections {
     disk: !windows,
     gpu: hasGpu,
     battery: hasBattery,
-    energy: !windows
+    energy: !windows && !linux
   }
 }
 
@@ -416,6 +464,19 @@ const VOLUMES: Volume[] = [
     available: 800 * GB
   }
 ]
+
+const LINUX_VOLUMES: Volume[] = [
+  { name: '/', mount: '/', startup: true, total: 476 * GB, available: 201 * GB },
+  { name: '/home', mount: '/home', startup: false, total: 931 * GB, available: 412 * GB },
+  { name: '/mnt/usb', mount: '/mnt/usb', startup: false, total: 58 * GB, available: 31 * GB }
+]
+
+function latestWith(pick: (sample: Sample) => unknown): Sample | null {
+  for (let index = samples.length - 1; index >= 0; index--) {
+    if (pick(samples[index]) !== null) return samples[index]
+  }
+  return null
+}
 
 function latest(): Sample | null {
   return samples[samples.length - 1] ?? null
@@ -433,18 +494,25 @@ function networkReading(now: number): NetworkReading | null {
     packetsOut: Math.round(tx / 360),
     received: 18.4 * GB + (now - startedAt) * 2000,
     sent: 2.1 * GB + (now - startedAt) * 300,
-    defaultInterface: 'en0',
-    interfaces: [
-      { name: 'en0', kind: null, counted: true, down: rx, up: tx },
-      { name: 'bridge100', kind: 'bridge', counted: false, down: 225 * 1024, up: 1.1 * MB },
-      { name: 'lo0', kind: 'loopback', counted: false, down: 96 * 1024, up: 96 * 1024 },
-      { name: 'utun3', kind: 'tunnel', counted: false, down: 12 * 1024, up: 4 * 1024 }
-    ]
+    defaultInterface: linux ? 'wlp2s0' : 'en0',
+    interfaces: linux
+      ? [
+          { name: 'wlp2s0', kind: null, counted: true, down: rx, up: tx },
+          { name: 'docker0', kind: 'bridge', counted: false, down: 225 * 1024, up: 1.1 * MB },
+          { name: 'veth1a2b3c4', kind: 'virtual', counted: false, down: 220 * 1024, up: MB },
+          { name: 'lo', kind: 'loopback', counted: false, down: 96 * 1024, up: 96 * 1024 }
+        ]
+      : [
+          { name: 'en0', kind: null, counted: true, down: rx, up: tx },
+          { name: 'bridge100', kind: 'bridge', counted: false, down: 225 * 1024, up: 1.1 * MB },
+          { name: 'lo0', kind: 'loopback', counted: false, down: 96 * 1024, up: 96 * 1024 },
+          { name: 'utun3', kind: 'tunnel', counted: false, down: 12 * 1024, up: 4 * 1024 }
+        ]
   }
 }
 
 function diskReading(now: number): PollResult['disk'] {
-  const sample = latest()
+  const sample = latestWith((entry) => entry.disk)
   if (windows || !sample?.disk) return null
   return {
     t: now,
@@ -458,27 +526,39 @@ function diskReading(now: number): PollResult['disk'] {
 }
 
 function gpuReading(): GpuReading | null {
-  const sample = latest()
+  const sample = latestWith((entry) => entry.gpu)
   if (!hasGpu || sample?.gpu === null || sample?.gpu === undefined) return null
+  if (linux) {
+    return {
+      model: 'NVIDIA GeForce RTX 4060 Laptop GPU',
+      utilization: sample.gpu,
+      renderer: null,
+      inUse: 2.3 * GB,
+      allocated: 8 * GB,
+      dedicated: true
+    }
+  }
   return {
     model: 'Apple M4 Pro',
     utilization: sample.gpu,
     renderer: Math.max(0, round1(sample.gpu - 1)),
     inUse: 1.2 * GB,
-    allocated: 6.7 * GB
+    allocated: 6.7 * GB,
+    dedicated: false
   }
 }
 
 function batteryReading(): BatteryReading | null {
-  return hasBattery
-    ? { percent: 82, onBattery: true, state: 'discharging', minutesLeft: 222 }
-    : null
+  if (!hasBattery) return null
+  return linux
+    ? { percent: 64, onBattery: true, state: 'discharging', minutesLeft: 194, watts: 11.24 }
+    : { percent: 82, onBattery: true, state: 'discharging', minutesLeft: 222, watts: null }
 }
 
 let energyPolls = 0
 
 function energyReading(now: number, input: PollInput): EnergyReading | null {
-  if (input.view !== 'energy' || windows) {
+  if (input.view !== 'energy' || windows || linux) {
     energyPolls = 0
     return null
   }
@@ -510,7 +590,7 @@ function energyReading(now: number, input: PollInput): EnergyReading | null {
 
 function cores(): CoreInfo[] {
   return Array.from({ length: CORE_COUNT }, (_, index) => ({
-    kind: windows ? null : index < 4 ? 'efficiency' : 'performance'
+    kind: windows || linux ? null : index < 4 ? 'efficiency' : 'performance'
   }))
 }
 
@@ -518,13 +598,18 @@ function hello(): HelloResult {
   return {
     protocol: 1,
     run,
-    platform: windows ? 'win32' : 'darwin',
-    cpuModel: windows ? 'Intel(R) Core(TM) i7-1185G7 @ 3.00GHz' : 'Apple M4 Pro',
+    platform: windows ? 'win32' : linux ? 'linux' : 'darwin',
+    cpuModel: windows
+      ? 'Intel(R) Core(TM) i7-1185G7 @ 3.00GHz'
+      : linux
+        ? 'AMD Ryzen 7 7840U w/ Radeon 780M Graphics'
+        : 'Apple M4 Pro',
     cores: cores(),
-    totalMemory: (windows ? 16 : 48) * GB,
+    totalMemory: (windows ? 16 : linux ? 32 : 48) * GB,
     sections: sections(),
     intervalMs: STEP_MS,
     historyMs: HISTORY_MS,
+    energyIntervalMs: 10000,
     defaultView: params.get('view') === 'processes' ? 'processes' : 'last'
   }
 }
@@ -545,7 +630,7 @@ function poll(input: PollInput): PollResult {
     memory: memoryReading(),
     network: networkReading(now),
     disk: diskReading(now),
-    volumes: windows ? null : VOLUMES,
+    volumes: windows ? null : linux ? LINUX_VOLUMES : VOLUMES,
     gpu: gpuReading(),
     battery: batteryReading(),
     energy: energyReading(now, input),

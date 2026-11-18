@@ -78,14 +78,39 @@ test('the active tier adds network and disk rates and GPU use to each sample', a
   assert.ok(withRates.length >= 3)
   const last = withRates[withRates.length - 1]
   assert.deepEqual(last.net, { down: EXTRA_STEP.rx / 2, up: EXTRA_STEP.tx / 2 })
-  assert.deepEqual(last.disk, { read: EXTRA_STEP.read / 2, write: EXTRA_STEP.write / 2 })
-  assert.equal(last.gpu, 25)
+  const withDisk = samples.filter((sample) => sample.disk)
+  assert.deepEqual(withDisk[withDisk.length - 1].disk, {
+    read: EXTRA_STEP.read / 4,
+    write: EXTRA_STEP.write / 4
+  })
+  assert.ok(samples.some((sample) => sample.gpu === 25))
   const network = sampler.network()
   assert.ok(network)
   assert.equal(network.defaultInterface, 'en0')
   assert.equal(network.packetsIn, 50)
   assert.deepEqual(sampler.gpu()?.model, 'Test GPU')
-  assert.equal(sampler.disk()?.reads, 5)
+  assert.ok(sampler.disk())
+  sampler.stop()
+})
+
+test('disk and GPU are read every second tick, and every tick in their own detail view', async () => {
+  const { time, cpus, sampler } = start()
+  await keepPolling(sampler, time, 'overview', 20_000)
+  const overview = { disk: cpus.calls('disk'), gpu: cpus.calls('gpu'), net: cpus.calls('network') }
+  assert.ok(overview.net >= 9, `network read ${overview.net} times`)
+  assert.ok(Math.abs(overview.disk - overview.net / 2) <= 1, `disk read ${overview.disk} times`)
+  assert.ok(Math.abs(overview.gpu - overview.net / 2) <= 1, `GPU read ${overview.gpu} times`)
+
+  await keepPolling(sampler, time, 'disk', 20_000)
+  const net = cpus.calls('network') - overview.net
+  assert.ok(Math.abs(cpus.calls('disk') - overview.disk - net) <= 1)
+  assert.ok(Math.abs(cpus.calls('gpu') - overview.gpu - net / 2) <= 1)
+
+  const before = { disk: cpus.calls('disk'), gpu: cpus.calls('gpu'), net: cpus.calls('network') }
+  await keepPolling(sampler, time, 'gpu', 20_000)
+  const ticks = cpus.calls('network') - before.net
+  assert.ok(Math.abs(cpus.calls('gpu') - before.gpu - ticks) <= 1)
+  assert.ok(Math.abs(cpus.calls('disk') - before.disk - ticks / 2) <= 1)
   sampler.stop()
 })
 

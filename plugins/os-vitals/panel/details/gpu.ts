@@ -62,10 +62,17 @@ export function createGpuView(actions: PanelActions) {
     const allocated = gpu?.allocated ?? null
     memory.hidden = inUse === null || allocated === null || allocated <= 0
     if (inUse !== null && allocated !== null && allocated > 0) {
-      setText(amount, `${portion(inUse, allocated)} allocated`)
-      bar.set(inUse / allocated, `${portion(inUse, allocated)} of allocated GPU memory in use`)
+      const dedicated = gpu?.dedicated === true
+      setText(
+        amount,
+        dedicated ? portion(inUse, allocated) : `${portion(inUse, allocated)} allocated`
+      )
+      bar.set(
+        inUse / allocated,
+        `${portion(inUse, allocated)} of ${dedicated ? 'GPU memory' : 'allocated GPU memory'} in use`
+      )
     }
-    shared.hidden = !(gpu?.model ?? '').startsWith('Apple')
+    shared.hidden = gpu?.dedicated !== false || !(gpu?.model ?? '').startsWith('Apple')
     const [renderer, peak] = facts.values
     facts.rows[0].hidden = gpu === null || gpu.renderer === null
     setText(renderer, percent(gpu?.renderer))

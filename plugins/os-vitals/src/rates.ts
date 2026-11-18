@@ -1,5 +1,6 @@
 import type { DiskDriver } from './parse/ioreg-disk.ts'
-import { countsInTotals, interfaceKind, type InterfaceCounters } from './parse/netstat.ts'
+import { macInterface, type Classifier } from './interfaces.ts'
+import type { InterfaceCounters } from './parse/netstat.ts'
 import type { DiskReading, InterfaceRate, NetworkReading } from './protocol.ts'
 
 export const INTERFACE_LIMIT = 12
@@ -17,7 +18,8 @@ export function networkReading(
   current: readonly InterfaceCounters[],
   seconds: number,
   t: number,
-  defaultInterface: string | null
+  defaultInterface: string | null,
+  classify: Classifier = macInterface
 ): NetworkReading {
   const before = new Map(previous.map((entry) => [entry.name, entry]))
   const reading: NetworkReading = {
@@ -35,7 +37,7 @@ export function networkReading(
   let packetsOut = 0
   const rows: InterfaceRate[] = []
   for (const entry of current) {
-    const counted = countsInTotals(entry.name)
+    const { kind, counted } = classify(entry.name)
     if (counted) {
       reading.received += entry.rxBytes
       reading.sent += entry.txBytes
@@ -50,8 +52,7 @@ export function networkReading(
       packetsIn += grew(old.rxPackets, entry.rxPackets)
       packetsOut += grew(old.txPackets, entry.txPackets)
     }
-    if (down + up > 0)
-      rows.push({ name: entry.name, kind: interfaceKind(entry.name), counted, down, up })
+    if (down + up > 0) rows.push({ name: entry.name, kind, counted, down, up })
   }
   reading.packetsIn = perSecond(packetsIn, seconds)
   reading.packetsOut = perSecond(packetsOut, seconds)

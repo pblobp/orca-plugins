@@ -28,6 +28,7 @@ export function macMemory(vmStatText: string, sysctlText: string): MemoryReading
     app,
     wired,
     compressed,
+    buffers: null,
     cached,
     free: Math.max(0, total - used - cached),
     swapUsed: swap ? swap.used : null,

@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { readdir, readlink, statfs } from 'node:fs/promises'
+import { readdir, readlink } from 'node:fs/promises'
 import { posix } from 'node:path'
 import { otherVolumes, parseDf } from '../parse/df.ts'
 import { parseCoreKinds } from '../parse/ioreg-cpus.ts'
@@ -12,6 +12,7 @@ import { parseDetail, parseIdentity, parsePs } from '../parse/ps.ts'
 import { parseTopEnergy } from '../parse/top.ts'
 import type { CoreKind, Volume } from '../protocol.ts'
 import { nodeOsProvider, type OsSource } from './fallback.ts'
+import { readSpace, type VolumeSpace } from './space.ts'
 import { sectionGuard, type Provider } from './types.ts'
 
 export const COMMAND_TIMEOUT_MS = 1500
@@ -88,8 +89,6 @@ export function threadArgs(pid: number): string[] {
   return ['-M', '-p', String(pid)]
 }
 
-export type VolumeSpace = { total: number; available: number }
-
 export type DarwinCommands = {
   ps(args: readonly string[]): Promise<string>
   vmStat(): Promise<string>
@@ -106,17 +105,6 @@ export type DarwinCommands = {
 }
 
 type Done = (error: Error | null, stdout: string) => void
-
-async function readSpace(path: string): Promise<VolumeSpace | null> {
-  try {
-    const stats = await statfs(path)
-    const total = stats.blocks * stats.bsize
-    const available = stats.bavail * stats.bsize
-    return total > 0 && available >= 0 ? { total, available: Math.min(total, available) } : null
-  } catch {
-    return null
-  }
-}
 
 async function readStartupName(): Promise<string | null> {
   try {

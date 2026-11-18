@@ -34,7 +34,6 @@ import { createProcesses } from './views/processes.ts'
 
 const REQUEST_TIMEOUT_MS = 10000
 const RETRY_MAX_MS = 10000
-const ENERGY_INTERVAL_MS = 5000
 const VIEW_KEY = 'os-vitals.view'
 const TOP_VIEWS: readonly TopView[] = ['overview', 'processes']
 const DETAIL_VIEWS: readonly DetailView[] = ['cpu', 'memory', 'network', 'disk', 'gpu', 'energy']
@@ -393,7 +392,9 @@ function render(): void {
     if (name === topOf(state.view)) tabs[name].setAttribute('aria-current', 'page')
     else tabs[name].removeAttribute('aria-current')
   }
-  const every = state.view === 'energy' ? ENERGY_INTERVAL_MS : state.intervalMs
+  const measuring =
+    state.view === 'energy' && state.hello && (state.sections ?? state.hello.sections).energy
+  const every = measuring && state.hello ? state.hello.energyIntervalMs : state.intervalMs
   setText(intervalLabel, state.paused ? 'Paused' : interval(every))
   setAttr(pauseButton, 'aria-label', state.paused ? 'Resume sampling' : 'Pause sampling')
   if (pausedIcon !== state.paused) {

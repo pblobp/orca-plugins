@@ -9,7 +9,9 @@
     "/sbin/route",
     "/bin/df",
     "/usr/bin/pmset",
-    "/usr/bin/top"
+    "/usr/bin/top",
+    "/usr/bin/nvidia-smi",
+    "/usr/local/bin/nvidia-smi"
   ],
   "dynamicPrograms": [
     {

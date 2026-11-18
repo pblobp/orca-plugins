@@ -21,6 +21,7 @@ import type {
   ViewName,
   Volume
 } from './protocol.ts'
+import { classifierFor } from './interfaces.ts'
 import { diskReading, networkReading } from './rates.ts'
 import { createRing } from './ring.ts'
 
@@ -29,7 +30,7 @@ export const ACTIVE_WINDOW_INTERVALS = 3
 export const MIN_DELTA_MS = 250
 export const MAX_DELTA_MS = 15000
 export const SLOW_INTERVAL_MS = 30000
-export const ENERGY_INTERVAL_MS = 5000
+export const ENERGY_INTERVAL_MS = 10000
 export const ENERGY_MIN_GAP_MS = 1000
 export const ENERGY_LIMIT = 10
 
@@ -198,10 +199,12 @@ export function createSampler(deps: SamplerDeps, initial: SamplerConfig): Sample
   }
 
   async function readExtras(now: number): Promise<Extras> {
+    const view = demand?.view ?? 'overview'
+    const everyOther = activeTicks % 2 === 1
     const [counters, drivers, gpu] = await Promise.all([
       attempt(() => deps.provider.network()),
-      attempt(() => deps.provider.disk()),
-      attempt(() => deps.provider.gpu())
+      view === 'disk' || everyOther ? attempt(() => deps.provider.disk()) : null,
+      view === 'gpu' || everyOther ? attempt(() => deps.provider.gpu()) : null
     ])
     if (stopped) return NO_EXTRAS
     const extras: Extras = { net: null, disk: null, gpu: null }
@@ -210,7 +213,14 @@ export function createSampler(deps: SamplerDeps, initial: SamplerConfig): Sample
       netBase = { at: now, value: counters }
       if (previous) {
         const seconds = (now - previous.at) / 1000
-        latestNetwork = networkReading(previous.value, counters, seconds, now, defaultInterface)
+        latestNetwork = networkReading(
+          previous.value,
+          counters,
+          seconds,
+          now,
+          defaultInterface,
+          classifierFor(deps.provider.platform)
+        )
         extras.net = { down: latestNetwork.down, up: latestNetwork.up }
       }
     }

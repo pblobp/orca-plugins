@@ -29,6 +29,7 @@ export function osMemory(source: OsSource): MemoryReading | null {
     app: null,
     wired: null,
     compressed: null,
+    buffers: null,
     cached: null,
     free: clamped,
     swapUsed: null,
@@ -47,7 +48,7 @@ export function nodeOsProvider(source: OsSource, platform: string): Provider {
     init: async () => {},
     cpuModel() {
       const model = cpuList()[0]?.model?.trim()
-      return model ? model.replace(/\s+/g, ' ') : null
+      return model && model.toLowerCase() !== 'unknown' ? model.replace(/\s+/g, ' ') : null
     },
     cores: () => cpuList().map(() => ({ kind: null })),
     cpuTimes: () => cpuList().map((cpu) => copyTimes(cpu.times)),

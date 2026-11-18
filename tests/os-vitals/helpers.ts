@@ -94,7 +94,8 @@ export const FAKE_BATTERY: BatteryReading = {
   percent: 82,
   onBattery: true,
   state: 'discharging',
-  minutesLeft: 222
+  minutesLeft: 222,
+  watts: null
 }
 
 export function fakeCpus(cores = 2, platform = 'linux'): FakeSystem {
@@ -194,7 +195,14 @@ export function fakeCpus(cores = 2, platform = 'linux'): FakeSystem {
       async gpu() {
         count('gpu')
         return extras
-          ? { model: 'Test GPU', utilization: 25, renderer: 24, inUse: 1e9, allocated: 6e9 }
+          ? {
+              model: 'Test GPU',
+              utilization: 25,
+              renderer: 24,
+              inUse: 1e9,
+              allocated: 6e9,
+              dedicated: false
+            }
           : null
       },
       async battery() {

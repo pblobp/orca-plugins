@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>OS Vitals on Linux and Windows</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 16px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 16px;
+        background: #6b6b73;
+        font:
+          12px system-ui,
+          sans-serif;
+      }
+      figure {
+        margin: 0;
+      }
+      figcaption {
+        margin-bottom: 4px;
+        color: #ffffff;
+      }
+      iframe {
+        display: block;
+        border: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <figure>
+      <figcaption>Linux Overview, dark</figcaption>
+      <iframe
+        title="Linux Overview, dark"
+        src="harness.html?theme=dark&amp;scenario=linux"
+        width="400"
+        height="1560"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Linux Overview, light</figcaption>
+      <iframe
+        title="Linux Overview, light"
+        src="harness.html?theme=light&amp;scenario=linux"
+        width="400"
+        height="1560"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Linux Memory view</figcaption>
+      <iframe
+        title="Linux Memory view"
+        src="harness.html?theme=dark&amp;scenario=linux&amp;view=memory"
+        width="400"
+        height="900"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Linux GPU view (NVIDIA)</figcaption>
+      <iframe
+        title="Linux GPU view (NVIDIA)"
+        src="harness.html?theme=light&amp;scenario=linux&amp;view=gpu"
+        width="400"
+        height="560"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Linux Energy view: battery and power draw only</figcaption>
+      <iframe
+        title="Linux Energy view: battery and power draw only"
+        src="harness.html?theme=dark&amp;scenario=linux&amp;view=energy"
+        width="400"
+        height="320"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Linux Network view</figcaption>
+      <iframe
+        title="Linux Network view"
+        src="harness.html?theme=dark&amp;scenario=linux&amp;view=network"
+        width="400"
+        height="820"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Linux Disk view</figcaption>
+      <iframe
+        title="Linux Disk view"
+        src="harness.html?theme=light&amp;scenario=linux&amp;view=disk"
+        width="400"
+        height="820"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Linux kernel thread details</figcaption>
+      <iframe
+        title="Linux kernel thread details"
+        src="harness.html?theme=dark&amp;scenario=linux&amp;view=processes&amp;act=filter:kworker,select:kworker/u16:2-events_unbound"
+        width="400"
+        height="900"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Windows Overview, CPU and memory only</figcaption>
+      <iframe
+        title="Windows Overview, CPU and memory only"
+        src="harness.html?theme=dark&amp;scenario=windows"
+        width="400"
+        height="760"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Windows Processes view</figcaption>
+      <iframe
+        title="Windows Processes view"
+        src="harness.html?theme=light&amp;scenario=windows&amp;view=processes"
+        width="400"
+        height="300"
+      ></iframe>
+    </figure>
+  </body>
+</html>

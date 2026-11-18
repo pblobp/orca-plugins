@@ -60,7 +60,7 @@ export function createOfferer(
 ): (row: ProcessRow) => QuitOffer {
   const own = family(context, rows)
   return (row) => {
-    if (row.pid <= 1) return 'system'
+    if (row.pid <= 1 || row.kernel) return 'system'
     if (row.uid !== context.uid) return 'not_owner'
     if (own.has(row.pid) || insideBundle(row.path, context.bundle)) return 'orca'
     return protectedRule(row)?.group ?? 'allowed'
@@ -86,6 +86,7 @@ export async function quitProcess(input: QuitInput, deps: QuitDeps): Promise<Qui
 
   const fresh = await deps.identify(input.pid)
   if (!fresh) return refuse('gone')
+  if (fresh.kernel || listed?.kernel) return refuse('protected')
   if (!listed || fresh.start !== input.startedAt) return refuse('changed')
   if (fresh.uid !== listed.uid || fresh.name !== listed.name) return refuse('changed')
 
