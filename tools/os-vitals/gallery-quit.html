@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>OS Vitals quit gallery</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 16px;
+        display: grid;
+        grid-template-columns: repeat(4, 360px);
+        gap: 16px;
+        background: #6b6b73;
+        font:
+          12px system-ui,
+          sans-serif;
+      }
+      figure {
+        margin: 0;
+      }
+      figcaption {
+        margin-bottom: 4px;
+        color: #ffffff;
+      }
+      iframe {
+        display: block;
+        border: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <figure>
+      <figcaption>Details with Quit, dark</figcaption>
+      <iframe
+        title="Details with Quit dark"
+        src="harness.html?theme=dark&view=processes&act=select:node"
+        width="360"
+        height="720"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Confirmation, dark</figcaption>
+      <iframe
+        title="Confirmation dark"
+        src="harness.html?theme=dark&view=processes&act=select:node,click:Quit…"
+        width="360"
+        height="720"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Asked to quit, dark</figcaption>
+      <iframe
+        title="Asked to quit dark"
+        src="harness.html?theme=dark&view=processes&act=select:vite,wait:10500,click:Quit…,click:Quit"
+        width="360"
+        height="720"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Still running: force offered, dark</figcaption>
+      <iframe
+        title="Still running: force offered dark"
+        src="harness.html?theme=dark&view=processes&act=select:vite,click:Quit…,click:Quit,wait:5600"
+        width="360"
+        height="720"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Force confirmation, dark</figcaption>
+      <iframe
+        title="Force confirmation dark"
+        src="harness.html?theme=dark&view=processes&act=select:vite,click:Quit…,click:Quit,wait:5600,click:Force quit…"
+        width="360"
+        height="720"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Quit and gone, dark</figcaption>
+      <iframe
+        title="Quit and gone dark"
+        src="harness.html?theme=dark&view=processes&act=select:node,click:Quit…,click:Quit,wait:5600"
+        width="360"
+        height="720"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Protected: system, dark</figcaption>
+      <iframe
+        title="Protected: system dark"
+        src="harness.html?theme=dark&view=processes&act=select:Finder"
+        width="360"
+        height="720"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Protected: Orca, dark</figcaption>
+      <iframe
+        title="Protected: Orca dark"
+        src="harness.html?theme=dark&view=processes&act=select:Orca"
+        width="360"
+        height="720"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Another user, dark</figcaption>
+      <iframe
+        title="Another user dark"
+        src="harness.html?theme=dark&view=processes&act=select:WindowServer"
+        width="360"
+        height="720"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Refused: changed, dark</figcaption>
+      <iframe
+        title="Refused: changed dark"
+        src="harness.html?theme=dark&view=processes&act=select:tsc,click:Quit…,click:Quit"
+        width="360"
+        height="720"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Refused: not permitted, dark</figcaption>
+      <iframe
+        title="Refused: not permitted dark"
+        src="harness.html?theme=dark&view=processes&act=select:agent,click:Quit…,click:Quit"
+        width="360"
+        height="720"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Details with Quit, light</figcaption>
+      <iframe
+        title="Details with Quit light"
+        src="harness.html?theme=light&view=processes&act=select:node"
+        width="360"
+        height="720"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Confirmation, light</figcaption>
+      <iframe
+        title="Confirmation light"
+        src="harness.html?theme=light&view=processes&act=select:node,click:Quit…"
+        width="360"
+        height="720"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Asked to quit, light</figcaption>
+      <iframe
+        title="Asked to quit light"
+        src="harness.html?theme=light&view=processes&act=select:vite,wait:10500,click:Quit…,click:Quit"
+        width="360"
+        height="720"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Still running: force offered, light</figcaption>
+      <iframe
+        title="Still running: force offered light"
+        src="harness.html?theme=light&view=processes&act=select:vite,click:Quit…,click:Quit,wait:5600"
+        width="360"
+        height="720"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Force confirmation, light</figcaption>
+      <iframe
+        title="Force confirmation light"
+        src="harness.html?theme=light&view=processes&act=select:vite,click:Quit…,click:Quit,wait:5600,click:Force quit…"
+        width="360"
+        height="720"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Quit and gone, light</figcaption>
+      <iframe
+        title="Quit and gone light"
+        src="harness.html?theme=light&view=processes&act=select:node,click:Quit…,click:Quit,wait:5600"
+        width="360"
+        height="720"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Protected: system, light</figcaption>
+      <iframe
+        title="Protected: system light"
+        src="harness.html?theme=light&view=processes&act=select:Finder"
+        width="360"
+        height="720"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Protected: Orca, light</figcaption>
+      <iframe
+        title="Protected: Orca light"
+        src="harness.html?theme=light&view=processes&act=select:Orca"
+        width="360"
+        height="720"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Another user, light</figcaption>
+      <iframe
+        title="Another user light"
+        src="harness.html?theme=light&view=processes&act=select:WindowServer"
+        width="360"
+        height="720"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Refused: changed, light</figcaption>
+      <iframe
+        title="Refused: changed light"
+        src="harness.html?theme=light&view=processes&act=select:tsc,click:Quit…,click:Quit"
+        width="360"
+        height="720"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Refused: not permitted, light</figcaption>
+      <iframe
+        title="Refused: not permitted light"
+        src="harness.html?theme=light&view=processes&act=select:agent,click:Quit…,click:Quit"
+        width="360"
+        height="720"
+      ></iframe>
+    </figure>
+  </body>
+</html>

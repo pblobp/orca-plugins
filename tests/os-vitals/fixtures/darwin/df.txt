@@ -1,0 +1,14 @@
+Filesystem                                                                                     1024-blocks      Used  Available Capacity  Mounted on
+/dev/disk3s3s1                                                                                   482797652  13334408  126647096    10%    /
+devfs                                                                                                  205       205          0   100%    /dev
+/dev/disk3s6                                                                                     482797652        20  126647096     1%    /System/Volumes/VM
+/dev/disk3s4                                                                                     482797652  10635704  126647096     8%    /System/Volumes/Preboot
+/dev/disk1s2                                                                                        512000      6164     490808     2%    /System/Volumes/xarts
+/dev/disk3s1                                                                                     482797652 330495664  126647096    73%    /System/Volumes/Data
+map auto_home                                                                                            0         0          0   100%    /System/Volumes/Data/home
+/dev/disk3s5                                                                                     482797652   1505932  126647096     2%    /Volumes/Recovery
+/dev/disk5s1                                                                                      18124800  17586672     491796    98%    /private/var/run/com.apple.security.cryptexd/mnt/com.apple.example
+/dev/disk7s2                                                                                    1953104896 1171862936  781241960    60%    /Volumes/Backup Drive
+/dev/disk8s1                                                                                       30703616   1048576   29655040     4%    /Volumes/USB 2 0
+Example Share 2                                                                                    2000000   1000000    1000000    50%    /Volumes/Example Share
+devices -- file:///Users/user/Library/Containers/com.apple.CoreDevice.CoreDeviceService/Data/  1073741824         0 1073741824     0%    /Users/user/Library/Developer/CoreDevice/DeviceFS

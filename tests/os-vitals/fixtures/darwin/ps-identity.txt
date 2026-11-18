@@ -1,0 +1,1 @@
+Tue Nov 17 10:00:00 2026   501 /Applications/Example App.app/Contents/MacOS/Example App

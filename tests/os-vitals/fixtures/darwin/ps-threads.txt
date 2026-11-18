@@ -1,0 +1,5 @@
+USER    PID   TT   %CPU STAT PRI     STIME     UTIME COMMAND
+user  25251   ??    0.0 S    31T   0:00.09   0:00.42 /Users/user/.nvm/versions/node/v24.22.1/bin/node /Users/user/project/node_modules/.bin/vite --port 5173
+      25251         0.0 S    31T   0:00.00   0:00.00 
+      25251         0.0 S    31T   0:00.01   0:00.02 
+      25251         0.0 S    31T   0:00.00   0:00.00 

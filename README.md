@@ -11,11 +11,13 @@ license, and collect no data about you.
 
 ## Plugins
 
-| Plugin    | What it adds                                                                                                           | Status                           |
-| --------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
-| OS Vitals | A system monitor in the right sidebar and the status bar: CPU, memory, network, disk, GPU, battery and a process table | In development, not released yet |
+| Plugin                                   | What it adds                                                                                                                                | Status                  |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| [OS Vitals](plugins/os-vitals/README.md) | A system monitor in the right sidebar and the status bar: CPU, memory, network, disk, GPU, battery and a process table, with a memory alert | 1.0.0, not released yet |
 
 No plugin is released yet. Each row gets an install link when its plugin is released.
+
+![OS Vitals: the Overview with CPU, memory, network, disk and GPU cards](plugins/os-vitals/media/overview.png)
 
 ## Install
 
@@ -46,9 +48,9 @@ what those rules protect and what they cannot.
 
 The access each plugin asks for:
 
-| Plugin              | Execution        | Capabilities                         | Programs it runs                                                               | Network |
-| ------------------- | ---------------- | ------------------------------------ | ------------------------------------------------------------------------------ | ------- |
-| OS Vitals (planned) | `trusted-worker` | `settings:own`, `notifications:show` | System tools that report usage, such as `ps` and `vm_stat`, and Orca's own CLI | None    |
+| Plugin    | Execution        | Capabilities                         | Programs it runs                                                                                                                                                                        | Network |
+| --------- | ---------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| OS Vitals | `trusted-worker` | `settings:own`, `notifications:show` | On macOS, system tools that report usage (`ps`, `vm_stat`, `sysctl`, `ioreg`, `netstat`, `route`, `df`, `pmset`, `top`); on Linux, `nvidia-smi` when it exists; on both, Orca's own CLI | None    |
 
 Each plugin's README explains every item in its row. The exact programs and Node modules a plugin
 may use are listed in `policy/<plugin id>.json`, and CI rejects code that uses anything else.

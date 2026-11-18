@@ -1,0 +1,13 @@
+Name:	gnome-shell
+Umask:	0022
+State:	S (sleeping)
+Tgid:	0
+Ngid:	0
+PPid:	1
+TracerPid:	0
+Uid:	1000	1000	1000	1000
+Gid:	1000	1000	1000	1000
+VmPeak:	  1440000 kB
+VmRSS:	  480000 kB
+Threads:	20
+voluntary_ctxt_switches:	10

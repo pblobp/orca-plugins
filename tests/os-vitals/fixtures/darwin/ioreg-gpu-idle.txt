@@ -1,0 +1,6 @@
++-o AGXAcceleratorG13X  <class AGXAcceleratorG13X, id 0x100000600, registered, matched, active, busy 0 (3 ms), retain 30>
+    {
+      "IOClass" = "AGXAcceleratorG13X"
+      "model" = "Apple M1"
+    }
+    

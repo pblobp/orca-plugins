@@ -1,0 +1,13 @@
+Name:	postgres
+Umask:	0022
+State:	S (sleeping)
+Tgid:	0
+Ngid:	0
+PPid:	1
+TracerPid:	0
+Uid:	70	70	70	70
+Gid:	70	70	70	70
+VmPeak:	  90000 kB
+VmRSS:	  30000 kB
+Threads:	1
+voluntary_ctxt_switches:	10

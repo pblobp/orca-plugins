@@ -1,0 +1,41 @@
+Processes: 1046 total, 4 running, 1042 sleeping, 5827 threads 
+2026/11/17 17:00:41
+Load Avg: 2.13, 2.53, 2.50 
+CPU usage: 6.8% user, 10.5% sys, 83.86% idle 
+SharedLibs: 1190M resident, 213M data, 223M linkedit.
+MemRegions: 883591 total, 14G resident, 553M private, 5461M shared.
+PhysMem: 45G used (3556M wired, 5628M compressor), 2247M unused.
+VM: 537T vsize, 57G framework vsize, 0(0) swapins, 0(0) swapouts.
+Networks: packets: 25762946/24G in, 22004811/13G out.
+Disks: 9797514/298G read, 9299856/148G written.
+
+PID    POWER IDLEW
+94888  0.0   9    
+93985  0.0   0    
+93980  0.0   0    
+93943  0.0   0    
+92334  0.0   0    
+90707  0.0   0    
+Processes: 1047 total, 3 running, 1044 sleeping, 5834 threads 
+2026/11/17 17:00:42
+Load Avg: 2.28, 2.56, 2.51 
+CPU usage: 8.62% user, 4.21% sys, 87.15% idle 
+SharedLibs: 1190M resident, 213M data, 223M linkedit.
+MemRegions: 69 total, 272K resident, 553M private, 5464M shared.
+PhysMem: 45G used (3551M wired, 5628M compressor), 2260M unused.
+VM: 538T vsize, 57G framework vsize, 0(0) swapins, 0(0) swapouts.
+Networks: packets: 25766467/24G in, 22006740/13G out.
+Disks: 9797518/298G read, 9299866/148G written.
+
+PID    POWER IDLEW  
+1650   11.0  8796   
+27260  10.1  726+   
+397    9.9   647170+
+511    8.7   246226 
+36849  7.8   6034   
+549    7.9   351070+
+36730  6.7   35954+ 
+69906  6.5   0      
+62742  6.1   5297   
+66652  5.4   1744+  
+66216  5.2   1200   

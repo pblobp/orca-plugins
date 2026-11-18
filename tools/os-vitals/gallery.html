@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>OS Vitals gallery</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 16px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 16px;
+        background: #6b6b73;
+        font:
+          12px system-ui,
+          sans-serif;
+      }
+      figure {
+        margin: 0;
+      }
+      figcaption {
+        margin-bottom: 4px;
+        color: #ffffff;
+      }
+      iframe {
+        display: block;
+        border: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <figure>
+      <figcaption>Overview, dark, 220 px</figcaption>
+      <iframe
+        title="overview dark 220"
+        src="harness.html?theme=dark"
+        width="220"
+        height="900"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Overview, dark, 400 px</figcaption>
+      <iframe
+        title="overview dark 400"
+        src="harness.html?theme=dark"
+        width="400"
+        height="900"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Overview, light, 400 px</figcaption>
+      <iframe
+        title="overview light 400"
+        src="harness.html?theme=light"
+        width="400"
+        height="900"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Processes, dark, 400 px</figcaption>
+      <iframe
+        title="processes dark 400"
+        src="harness.html?theme=dark&view=processes"
+        width="400"
+        height="900"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Processes with details, dark, 400 px</figcaption>
+      <iframe
+        title="details dark"
+        src="harness.html?theme=dark&view=processes&act=select:node"
+        width="400"
+        height="900"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Processes with details, light, 320 px</figcaption>
+      <iframe
+        title="details light"
+        src="harness.html?theme=light&view=processes&act=select:WindowServer"
+        width="320"
+        height="900"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Processes, light, 220 px</figcaption>
+      <iframe
+        title="processes light 220"
+        src="harness.html?theme=light&view=processes"
+        width="220"
+        height="900"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>No filter match, dark, 300 px</figcaption>
+      <iframe
+        title="empty filter"
+        src="harness.html?theme=dark&view=processes&act=filter:zzz"
+        width="300"
+        height="420"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Filtered by name, light, 300 px</figcaption>
+      <iframe
+        title="filtered"
+        src="harness.html?theme=light&view=processes&act=filter:orca"
+        width="300"
+        height="420"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Memory pressure critical, dark, 320 px</figcaption>
+      <iframe
+        title="pressure"
+        src="harness.html?theme=dark&scenario=pressure"
+        width="320"
+        height="900"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Windows: no load, no processes, light, 300 px</figcaption>
+      <iframe
+        title="windows"
+        src="harness.html?scenario=windows&theme=light"
+        width="300"
+        height="900"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Windows Processes view, dark, 300 px</figcaption>
+      <iframe
+        title="windows processes"
+        src="harness.html?scenario=windows&view=processes"
+        width="300"
+        height="300"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>loading</figcaption>
+      <iframe title="loading" src="harness.html?scenario=loading" width="300" height="200"></iframe>
+    </figure>
+    <figure>
+      <figcaption>worker did not answer</figcaption>
+      <iframe title="error" src="harness.html?scenario=error" width="300" height="220"></iframe>
+    </figure>
+    <figure>
+      <figcaption>unsupported</figcaption>
+      <iframe
+        title="unsupported"
+        src="harness.html?scenario=unsupported&theme=light"
+        width="300"
+        height="200"
+      ></iframe>
+    </figure>
+  </body>
+</html>
