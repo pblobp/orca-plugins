@@ -6,7 +6,8 @@ import { locateCli, outermostApp, runOrcaCli, type CliResult } from './cli.ts'
 import { realClock, type Clock } from './clock.ts'
 import { openOwnPanel, type RunCli } from './open-panel.ts'
 import { createProvider, type Provider } from './platform/index.ts'
-import { processName } from './parse/ps.ts'
+import { processName, type RawProcess } from './parse/ps.ts'
+import { createAlerts } from './alerts.ts'
 import { queryProcesses, readQuery, withOffers } from './processes.ts'
 import type {
   DetailResult,
@@ -141,17 +142,43 @@ export async function startVitals(orca: OrcaWorkerApi, deps: VitalsDeps): Promis
     if (!sample) return
     statusBar.show(
       settings.statusBar,
-      { cpu: sample.total, memory: sample.memory, load: provider.load() },
+      { cpu: sample.total, memory: sample.memory, load: provider.load(), alert: alerts.status() },
       force
     )
   }
+
+  const alerts = createAlerts({
+    async topProcess() {
+      if (!provider.sections().processes) return null
+      const list = await provider.processes()
+      const top = list?.reduce<RawProcess | null>(
+        (best, entry) => (!best || entry.rss > best.rss ? entry : best),
+        null
+      )
+      return top ? { name: top.name ?? processName(top.comm), memory: top.rss } : null
+    },
+    async notify(notice) {
+      try {
+        const result = await orca.host.call('notifications.show', notice)
+        if (result && result.delivered === false) {
+          orca.log('Orca did not show the OS Vitals memory alert')
+        }
+      } catch (error) {
+        orca.log(`OS Vitals could not show its memory alert: ${message(error)}`)
+      }
+    },
+    onChange: () => showStatus(sampler.latest(), true)
+  })
 
   const sampler = createSampler(
     {
       clock,
       provider,
       selfPid: deps.quit.selfPid,
-      onSample: (sample) => showStatus(sample, false),
+      onSample: (sample) => {
+        alerts.observe(sample, settings)
+        showStatus(sample, false)
+      },
       onError: (error) => orca.log(`OS Vitals could not read the system: ${message(error)}`)
     },
     samplerConfig(settings)
@@ -322,6 +349,7 @@ export async function startVitals(orca: OrcaWorkerApi, deps: VitalsDeps): Promis
   return {
     stop() {
       stopped = true
+      alerts.stop()
       sampler.stop()
       provider.dispose()
       for (const controller of controllers) controller.abort()

@@ -18,6 +18,7 @@ export type StatusInput = {
   cpu: number | null
   memory: MemoryReading | null
   load: LoadAverage | null
+  alert?: { tone: StatusTone; reasons: readonly string[] }
 }
 
 export function memoryPercent(memory: MemoryReading | null): number | null {
@@ -51,9 +52,14 @@ export function statusView(mode: StatusBarMode, input: StatusInput): StatusView 
     parts.push(`MEM ${percent(memoryPercent(input.memory))}`)
   }
   const lines = ['OS Vitals']
+  if (input.alert) lines.push(...input.alert.reasons)
   if (input.load) lines.push(`Load ${loadAverage(input.load)}`)
   if (input.memory) lines.push(memoryLine(input.memory))
-  return { text: parts.join(' · '), tone: 'neutral', tooltip: lines.join('\n') }
+  return {
+    text: parts.join(' · '),
+    tone: input.alert?.tone ?? 'neutral',
+    tooltip: lines.join('\n')
+  }
 }
 
 function sameView(a: StatusView, b: StatusView): boolean {

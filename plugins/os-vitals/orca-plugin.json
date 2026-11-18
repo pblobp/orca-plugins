@@ -14,6 +14,37 @@
   "engines": {
     "orca": ">=1.4.248"
   },
+  "icon": "media/icon.png",
+  "cover": {
+    "path": "media/cover.png",
+    "alt": "OS Vitals: the Overview in the dark theme and the Network view in the light theme, beside the name and a one-line description."
+  },
+  "screenshots": [
+    {
+      "path": "media/overview.png",
+      "alt": "The Overview, dark: CPU over time with per-core load, the memory breakdown, and network, disk and GPU cards with charts.",
+      "caption": "The Overview: every part of the system at a glance",
+      "theme": "dark"
+    },
+    {
+      "path": "media/processes.png",
+      "alt": "The Processes view, dark: a sorted process table and the details pane for one process, with its command line and Quit.",
+      "caption": "Processes: sort, filter, see details and quit",
+      "theme": "dark"
+    },
+    {
+      "path": "media/details.png",
+      "alt": "The CPU and Memory views, light: a CPU chart with a tooltip at one moment, and memory in use over time with its parts.",
+      "caption": "Detail views with charts you can point at or read with the keyboard",
+      "theme": "light"
+    },
+    {
+      "path": "media/network.png",
+      "alt": "The Network and Energy views, dark: rates with a tooltip, the battery, and each process's energy impact.",
+      "caption": "Network rates and energy impact",
+      "theme": "dark"
+    }
+  ],
   "main": "src/worker.ts",
   "contributes": {
     "panels": [

@@ -1,0 +1,42 @@
+html,
+body {
+  margin: 0;
+  width: 800px;
+  height: 500px;
+  overflow: hidden;
+}
+
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+}
+
+body.dark {
+  background: #1c1d21;
+  color: #f0f0f0;
+}
+
+body.light {
+  background: #e9eaee;
+  color: #18181b;
+}
+
+.panel {
+  display: block;
+  width: 360px;
+  height: 456px;
+  border: 0;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+}
+
+.light .panel {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+}

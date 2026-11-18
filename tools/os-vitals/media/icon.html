@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>OS Vitals icon</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 256px;
+        height: 256px;
+        background: transparent;
+      }
+      svg {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <svg viewBox="0 0 256 256" width="256" height="256" aria-label="OS Vitals">
+      <defs>
+        <linearGradient id="ground" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#1f2937" />
+          <stop offset="1" stop-color="#0b1220" />
+        </linearGradient>
+      </defs>
+      <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#ground)" />
+      <g fill="none" stroke-width="26" stroke-linecap="round">
+        <path d="M 74.3 181.7 A 76 76 0 0 1 77.6 70.2" stroke="#3987e5" />
+        <path d="M 103.2 57.9 A 76 76 0 0 1 182.7 75.3" stroke="#d95926" />
+        <path d="M 194.5 100.2 A 76 76 0 0 1 181.7 181.7" stroke="#199e70" />
+      </g>
+      <rect x="104" y="120" width="16" height="44" rx="8" fill="#f0f0f0" />
+      <rect x="136" y="96" width="16" height="68" rx="8" fill="#f0f0f0" />
+    </svg>
+  </body>
+</html>

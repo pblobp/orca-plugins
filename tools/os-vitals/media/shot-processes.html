@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>OS Vitals processes</title>
+    <link rel="stylesheet" href="media.css" />
+    <style>
+      html,
+      body {
+        width: 1000px;
+        height: 625px;
+      }
+      .panel {
+        width: 450px;
+        height: 580px;
+      }
+    </style>
+  </head>
+  <body class="dark">
+    <iframe
+      class="panel"
+      title="Processes"
+      src="../harness.html?neutral=1&amp;theme=dark&amp;view=processes"
+    ></iframe>
+    <iframe
+      class="panel"
+      title="Process details"
+      src="../harness.html?neutral=1&amp;theme=dark&amp;view=processes&amp;act=filter:node,select:node"
+    ></iframe>
+  </body>
+</html>

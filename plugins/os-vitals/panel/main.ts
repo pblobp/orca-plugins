@@ -27,7 +27,7 @@ import { createGpuView } from './details/gpu.ts'
 import { createMemoryView } from './details/memory.ts'
 import { createNetworkView } from './details/network.ts'
 import { el, icon, PAUSE_ICON, PLAY_ICON, setAttr, setText } from './dom.ts'
-import { interval } from './format.ts'
+import { clockTime, interval } from './format.ts'
 import { detailAvailable, type PanelActions, type PanelModel, type View } from './state.ts'
 import { createOverview } from './views/overview.ts'
 import { createProcesses } from './views/processes.ts'
@@ -127,8 +127,12 @@ function topOf(view: ViewName): TopView {
   return view === 'processes' ? 'processes' : 'overview'
 }
 
-function tabButton(label: string, view: ViewName): HTMLButtonElement {
-  const button = el('button', { className: 'vt-tab', text: label, attrs: { type: 'button' } })
+function tabButton(label: string, view: TopView): HTMLButtonElement {
+  const button = el('button', {
+    className: 'vt-tab',
+    text: label,
+    attrs: { type: 'button', role: 'tab', id: `vt-tab-${view}`, 'aria-controls': 'vt-content' }
+  })
   button.addEventListener('click', () => {
     if (state.view === view) return
     showView(view)
@@ -143,12 +147,39 @@ const tabs: Record<TopView, HTMLButtonElement> = {
 }
 const intervalLabel = el('span', { className: 'vt-interval' })
 const pauseButton = el('button', { className: 'vt-icon-button', attrs: { type: 'button' } })
+const tabList = el(
+  'div',
+  { className: 'vt-tabs', attrs: { role: 'tablist', 'aria-label': 'Views' } },
+  [tabs.overview, tabs.processes]
+)
+tabList.addEventListener('keydown', (event) => {
+  const index = TOP_VIEWS.indexOf(topOf(state.view))
+  const moves = new Map<string, number>([
+    ['ArrowRight', (index + 1) % TOP_VIEWS.length],
+    ['ArrowLeft', (index + TOP_VIEWS.length - 1) % TOP_VIEWS.length],
+    ['Home', 0],
+    ['End', TOP_VIEWS.length - 1]
+  ])
+  const next = moves.get(event.key)
+  if (next === undefined) return
+  event.preventDefault()
+  const view = TOP_VIEWS[next]
+  if (state.view !== view) showView(view)
+  tabs[view].focus()
+})
 const header = el('header', { className: 'vt-bar' }, [
-  el('nav', { className: 'vt-tabs', attrs: { 'aria-label': 'Views' } }, [
-    tabs.overview,
-    tabs.processes
-  ]),
+  tabList,
   el('div', { className: 'vt-bar-end' }, [intervalLabel, pauseButton])
+])
+const pausedText = el('span')
+const pausedResume = el('button', {
+  className: 'vt-button',
+  text: 'Resume',
+  attrs: { type: 'button' }
+})
+const pausedBanner = el('div', { className: 'vt-banner vt-paused', attrs: { role: 'status' } }, [
+  pausedText,
+  pausedResume
 ])
 const bannerText = el('span', { text: 'The worker did not answer. Retrying.' })
 const bannerRetry = el('button', {
@@ -160,7 +191,10 @@ const banner = el('div', { className: 'vt-banner', attrs: { role: 'status' } }, 
   bannerText,
   bannerRetry
 ])
-const content = el('main', { className: 'vt-content' })
+const content = el('main', {
+  className: 'vt-content',
+  attrs: { id: 'vt-content', role: 'tabpanel' }
+})
 const openers = new Map<DetailView, HTMLElement>()
 const actions: PanelActions = {
   showProcesses: () => showView('processes'),
@@ -187,7 +221,7 @@ const views: Record<ViewName, View> = {
   energy: createEnergyView(actions)
 }
 
-const stateTitle = el('h2', { className: 'vt-title' })
+const stateTitle = el('h1', { className: 'vt-title' })
 const stateText = el('p', { className: 'vt-muted' })
 const stateRetry = el('button', {
   className: 'vt-button',
@@ -200,7 +234,7 @@ const stateBox = el(
   [stateTitle, stateText, stateRetry]
 )
 
-app.append(header, banner, content)
+app.append(header, pausedBanner, banner, content)
 
 let timer: number | undefined
 let inFlight = false
@@ -389,9 +423,17 @@ function renderState(): void {
 
 function render(): void {
   for (const name of TOP_VIEWS) {
-    if (name === topOf(state.view)) tabs[name].setAttribute('aria-current', 'page')
-    else tabs[name].removeAttribute('aria-current')
+    const selected = name === topOf(state.view)
+    setAttr(tabs[name], 'aria-selected', selected ? 'true' : 'false')
+    setAttr(tabs[name], 'tabindex', selected ? '0' : '-1')
   }
+  setAttr(content, 'aria-labelledby', `vt-tab-${topOf(state.view)}`)
+  const newest = state.samples[state.samples.length - 1]
+  pausedBanner.hidden = !(state.paused && state.phase === 'ready')
+  setText(
+    pausedText,
+    newest ? `Paused. The last reading is from ${clockTime(newest.t)}.` : 'Paused. No reading yet.'
+  )
   const measuring =
     state.view === 'energy' && state.hello && (state.sections ?? state.hello.sections).energy
   const every = measuring && state.hello ? state.hello.energyIntervalMs : state.intervalMs
@@ -416,15 +458,22 @@ function render(): void {
   }
   const view = views[state.view]
   content.dataset.view = state.view
+  app.classList.toggle('vt-fill', state.view === 'processes')
   showOnly(view.element)
   if (current) view.update(current)
 }
 
-pauseButton.addEventListener('click', () => {
-  state.paused = !state.paused
-  if (state.paused) cancel()
+function setPaused(paused: boolean): void {
+  state.paused = paused
+  if (paused) cancel()
   render()
-  if (!state.paused) void pollNow()
+  if (!paused) void pollNow()
+}
+
+pauseButton.addEventListener('click', () => setPaused(!state.paused))
+pausedResume.addEventListener('click', () => {
+  setPaused(false)
+  pauseButton.focus()
 })
 bannerRetry.addEventListener('click', retry)
 stateRetry.addEventListener('click', retry)
