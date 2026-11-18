@@ -3,5 +3,88 @@
   "catalogVersion": 2,
   "name": "pblobp Orca plugins",
   "owner": "pblobp",
-  "plugins": []
+  "plugins": [
+    {
+      "id": "pblobp.os-vitals",
+      "source": {
+        "kind": "git",
+        "url": "https://github.com/pblobp/orca-plugins.git",
+        "ref": "main",
+        "path": "plugins/os-vitals"
+      },
+      "description": "A system monitor in the right sidebar and the status bar: live CPU, memory, network, disk, GPU, battery and processes.",
+      "categories": ["panels"],
+      "releases": [
+        {
+          "version": "1.0.0",
+          "commit": "854040bbbcaa00d2f09558a549ff42942bc3ab27",
+          "contentHash": "950c7966b4d751360dd8e6caa159bbe1e74f237b8bf51e47bd94b23c5244f0cf",
+          "execution": "trusted-worker",
+          "minimumOrca": "1.4.248",
+          "name": "OS Vitals",
+          "contributes": [
+            {
+              "kind": "panels",
+              "name": "OS Vitals"
+            },
+            {
+              "kind": "commands",
+              "name": "OS Vitals: Open panel"
+            },
+            {
+              "kind": "statusBarItems",
+              "name": "OS Vitals"
+            }
+          ],
+          "capabilities": ["settings:own", "notifications:show"],
+          "images": {
+            "icon": {
+              "path": "plugins/os-vitals/media/icon.png",
+              "alt": "OS Vitals",
+              "sha256": "9b8226974c60679af98f7cdde0d7b6242de16285138c9311d75d20d2735b2f87",
+              "width": 512,
+              "height": 512
+            },
+            "cover": {
+              "path": "plugins/os-vitals/media/cover.png",
+              "alt": "OS Vitals: the Overview in the dark theme and the Network view in the light theme, beside the name and a one-line description.",
+              "sha256": "7b0dc95b8dca42084d2bfae24384725cc11cfb7451653e286299172ddacab1a8",
+              "width": 1600,
+              "height": 1000
+            },
+            "screenshots": [
+              {
+                "path": "plugins/os-vitals/media/overview.png",
+                "alt": "The Overview, dark: CPU over time with per-core load, the memory breakdown, and network, disk and GPU cards with charts.",
+                "sha256": "b7e7a504e4a5ef21841f5e4aee0a0c9fc8bc13a4633c6687af531a6b2862eaa1",
+                "width": 1600,
+                "height": 1000
+              },
+              {
+                "path": "plugins/os-vitals/media/processes.png",
+                "alt": "The Processes view, dark: a sorted process table and the details pane for one process, with its command line and Quit.",
+                "sha256": "fca10a6c62b044cd18890aea265add9e3868c1d414fc9305aaf5c278871810b1",
+                "width": 1600,
+                "height": 1000
+              },
+              {
+                "path": "plugins/os-vitals/media/details.png",
+                "alt": "The CPU and Memory views, light: a CPU chart with a tooltip at one moment, and memory in use over time with its parts.",
+                "sha256": "46ebaf97bd10aa97844ca9b7998f960a2081ec1569253ad06b77b43613cb3cc4",
+                "width": 1600,
+                "height": 1000
+              },
+              {
+                "path": "plugins/os-vitals/media/network.png",
+                "alt": "The Network and Energy views, dark: rates with a tooltip, the battery, and each process's energy impact.",
+                "sha256": "c74febf80823fd44e066e205b00bb2378b22591ceb7f6d5f14310078bf8cbf12",
+                "width": 1600,
+                "height": 1000
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
 }
