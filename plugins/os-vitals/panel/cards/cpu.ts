@@ -1,34 +1,42 @@
-import type { CoreInfo } from '../../src/protocol.ts'
-import { drawCpuChart, readPalette } from '../charts.ts'
+import type { CoreInfo, Sample } from '../../src/protocol.ts'
+import { createTimeChart, percentScale, type ChartSpec } from '../charts.ts'
 import { el, setAttr, setText } from '../dom.ts'
 import { count, duration, loadAverage, minutes, percent } from '../format.ts'
-import { latestWithCores, type PanelModel } from '../state.ts'
+import { latestWithCores, timeWindow, type PanelActions, type PanelModel } from '../state.ts'
+import { cardTitle, legendKey } from './common.ts'
 
-const GAP_FLOOR_MS = 5000
 const KIND_ORDER = { performance: 0, efficiency: 1 }
-
-export function legendKey(
-  series: string,
-  label: string
-): { element: HTMLElement; label: HTMLElement } {
-  const text = el('span', { text: label })
-  const element = el('span', { className: 'vt-key' }, [
-    el('span', { className: `vt-swatch vt-${series}`, attrs: { 'aria-hidden': 'true' } }),
-    text
-  ])
-  return { element, label: text }
-}
 
 export function coreOrder(cores: readonly CoreInfo[]): number[] {
   const rank = (core: CoreInfo) => (core.kind ? KIND_ORDER[core.kind] : 2)
   return cores.map((_, index) => index).sort((a, b) => rank(cores[a]) - rank(cores[b]) || a - b)
 }
 
-export function createCpuCard() {
-  const title = el('h2', { className: 'vt-title', text: 'CPU', attrs: { id: 'vt-cpu-title' } })
+export function cpuChartSpec(size: ChartSpec['size'], axis: ChartSpec['axis']): ChartSpec {
+  const pct = (value: number) => percent(value)
+  return {
+    name: 'CPU usage, user and system',
+    size,
+    axis,
+    stacked: true,
+    scale: percentScale,
+    series: [
+      { label: 'User', color: 1, area: true, format: pct, value: (s: Sample) => s.user },
+      { label: 'System', color: 2, area: true, format: pct, value: (s: Sample) => s.system }
+    ]
+  }
+}
+
+export function cpuSubtitle(model: PanelModel): string {
+  const coreText = count(model.hello.cores.length, 'core', 'cores')
+  return model.hello.cpuModel ? `${model.hello.cpuModel} · ${coreText}` : coreText
+}
+
+export function createCpuCard(actions: PanelActions) {
+  const title = cardTitle('CPU', 'vt-cpu-title', 'cpu', actions)
   const subtitle = el('span', { className: 'vt-sub' })
   const headline = el('div', { className: 'vt-big', text: '–' })
-  const canvas = el('canvas', { attrs: { role: 'img' } })
+  const chart = createTimeChart(cpuChartSpec('card', 'none'))
   const user = legendKey('s1', 'User –')
   const system = legendKey('s2', 'System –')
   const cores = el('div', { className: 'vt-cores', attrs: { role: 'img' } })
@@ -46,7 +54,7 @@ export function createCpuCard() {
         el('div', { className: 'vt-head-text' }, [title, subtitle]),
         headline
       ]),
-      el('div', { className: 'vt-chart' }, [canvas]),
+      chart.element,
       el('div', { className: 'vt-legend' }, [user.element, system.element]),
       el('div', { className: 'vt-cores-block' }, [
         cores,
@@ -71,18 +79,10 @@ export function createCpuCard() {
     const latest = samples[samples.length - 1] ?? null
     const coreCount = hello.cores.length
     const coreText = count(coreCount, 'core', 'cores')
-    setText(subtitle, hello.cpuModel ? `${hello.cpuModel} · ${coreText}` : coreText)
+    setText(subtitle, cpuSubtitle(model))
     setText(headline, percent(latest?.total))
     setText(user.label, `User ${percent(latest?.user)}`)
     setText(system.label, `System ${percent(latest?.system)}`)
-    const reading = latest
-      ? `, now user ${percent(latest.user)} and system ${percent(latest.system)}`
-      : ', no reading yet'
-    setAttr(
-      canvas,
-      'aria-label',
-      `CPU usage over ${minutes(model.historyMs)}, user and system${reading}`
-    )
 
     syncBars(coreCount)
     const order = coreOrder(hello.cores)
@@ -111,14 +111,7 @@ export function createCpuCard() {
     const current = model.current
     setText(load, current?.load ? `Load ${loadAverage(current.load)}` : '')
     setText(uptime, current ? `Up ${duration(current.uptime)}` : '')
-
-    const end = latest ? latest.t : Date.now()
-    drawCpuChart(
-      canvas,
-      samples,
-      { start: end - model.historyMs, end, gapMs: 3 * Math.max(model.intervalMs, GAP_FLOOR_MS) },
-      readPalette()
-    )
+    chart.update(samples, timeWindow(model), minutes(model.historyMs))
   }
 
   return { element, update }

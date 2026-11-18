@@ -1,9 +1,14 @@
 import type { MemoryPressure, MemoryReading } from '../../src/protocol.ts'
 import { CHECK_ICON, el, icon, setAttr, setText, WARNING_ICON } from '../dom.ts'
 import { bytes, gigabytes } from '../format.ts'
-import type { PanelModel } from '../state.ts'
+import type { PanelActions, PanelModel } from '../state.ts'
+import { cardTitle } from './common.ts'
 
-type Part = { label: string; series: string; value: (memory: MemoryReading) => number | null }
+export type Part = {
+  label: string
+  series: string
+  value: (memory: MemoryReading) => number | null
+}
 
 const DETAILED: readonly Part[] = [
   { label: 'App', series: 's1', value: (m) => m.app },
@@ -14,7 +19,7 @@ const DETAILED: readonly Part[] = [
 
 const SIMPLE: readonly Part[] = [{ label: 'Used', series: 's1', value: (m) => m.used }]
 
-const FREE: Part = { label: 'Free', series: 'free', value: (m) => m.free }
+export const FREE: Part = { label: 'Free', series: 'free', value: (m) => m.free }
 
 const PRESSURE_TEXT: Record<MemoryPressure, string> = {
   normal: 'Pressure normal',
@@ -26,16 +31,39 @@ export function memoryParts(memory: MemoryReading): readonly Part[] {
   return memory.app === null ? SIMPLE : DETAILED
 }
 
-export function createMemoryCard() {
-  const title = el('h2', { className: 'vt-title', text: 'Memory', attrs: { id: 'vt-mem-title' } })
+export function isSimple(parts: readonly Part[]): boolean {
+  return parts === SIMPLE
+}
+
+export function createPressure() {
+  const pressureIcon = el('span', { className: 'vt-pressure-icon' })
+  const pressureText = el('span')
+  const element = el('span', { className: 'vt-pressure' }, [pressureIcon, pressureText])
+  let shown: MemoryPressure | null | undefined
+  return {
+    element,
+    update(pressure: MemoryPressure | null) {
+      element.hidden = pressure === null
+      if (pressure && pressure !== shown) {
+        const tone = pressure === 'normal' ? 'good' : pressure === 'warning' ? 'warn' : 'crit'
+        pressureIcon.replaceChildren(
+          icon(pressure === 'normal' ? CHECK_ICON : WARNING_ICON, `vt-icon-stroke vt-${tone}`)
+        )
+        setText(pressureText, PRESSURE_TEXT[pressure])
+      }
+      shown = pressure
+    }
+  }
+}
+
+export function createMemoryCard(actions: PanelActions) {
+  const title = cardTitle('Memory', 'vt-mem-title', 'memory', actions)
   const used = el('span', { className: 'vt-big', text: '–' })
   const of = el('span', { className: 'vt-sub' })
   const bar = el('div', { className: 'vt-membar', attrs: { role: 'img' } })
   const free = el('div', { className: 'vt-seg vt-seg-free' })
   const legend = el('div', { className: 'vt-memlegend' })
-  const pressureIcon = el('span', { className: 'vt-pressure-icon' })
-  const pressureText = el('span')
-  const pressure = el('span', { className: 'vt-pressure' }, [pressureIcon, pressureText])
+  const pressure = createPressure()
   const swap = el('span')
   const element = el(
     'section',
@@ -47,13 +75,12 @@ export function createMemoryCard() {
       ]),
       bar,
       legend,
-      el('div', { className: 'vt-foot' }, [pressure, swap])
+      el('div', { className: 'vt-foot' }, [pressure.element, swap])
     ]
   )
   let shownParts: readonly Part[] | null = null
   let segments: HTMLElement[] = []
   let values: HTMLElement[] = []
-  let shownPressure: MemoryPressure | null | undefined
 
   function build(parts: readonly Part[]): void {
     shownParts = parts
@@ -78,12 +105,12 @@ export function createMemoryCard() {
   }
 
   function update(model: PanelModel): void {
-    element.hidden = !model.hello.sections.memory
+    element.hidden = !model.sections.memory
     const memory = model.memory
     if (!memory) {
       setText(used, '–')
       setText(of, model.hello.totalMemory > 0 ? `of ${gigabytes(model.hello.totalMemory)} GB` : '')
-      pressure.hidden = true
+      pressure.update(null)
       setText(swap, '')
       return
     }
@@ -102,16 +129,7 @@ export function createMemoryCard() {
     described.push(`free ${gigabytes(memory.free)}`)
     setAttr(bar, 'aria-label', `Memory in use: ${described.join(', ')} gigabytes`)
 
-    pressure.hidden = memory.pressure === null
-    if (memory.pressure && memory.pressure !== shownPressure) {
-      const tone =
-        memory.pressure === 'normal' ? 'good' : memory.pressure === 'warning' ? 'warn' : 'crit'
-      pressureIcon.replaceChildren(
-        icon(memory.pressure === 'normal' ? CHECK_ICON : WARNING_ICON, `vt-icon-stroke vt-${tone}`)
-      )
-      setText(pressureText, PRESSURE_TEXT[memory.pressure])
-    }
-    shownPressure = memory.pressure
+    pressure.update(memory.pressure)
     setText(swap, memory.swapUsed === null ? '' : `Swap ${bytes(memory.swapUsed)}`)
   }
 

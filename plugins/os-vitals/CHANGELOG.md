@@ -19,6 +19,12 @@ All notable changes to OS Vitals are recorded here. The format follows
 - Quitting a process on macOS from the details pane, behind a confirmation, with Force quit after
   5 seconds. The worker refuses PID 1, other users' processes, a reused PID, Orca itself and the
   protected set listed in the README.
+- Network, Disk, GPU and Battery cards on the Overview on macOS, and a detail view for CPU, memory,
+  network, disk, GPU and energy, opened from each card's title. Charts show the time and values
+  under the pointer, take keyboard focus, and label their scale; network and disk scales rise
+  above the highest reading in view.
+- Energy impact per process and the apps that keep the computer awake, read only while the Energy
+  view is open.
 - A status bar item with the current CPU and memory usage, updated at most every 5 seconds and only
   when a number changes. Pressing it opens the panel.
 - Settings for the refresh interval, the history length, the status bar item, background sampling,
@@ -37,6 +43,10 @@ All notable changes to OS Vitals are recorded here. The format follows
   the status bar item is pressed. It finds the tool inside Orca's application folder.
 - On macOS, runs `/usr/bin/vm_stat` and `/usr/sbin/sysctl` for memory, `/bin/ps` for processes
   while the panel shows them, and `/usr/sbin/ioreg` once to tell performance cores from efficiency
-  cores.
+  cores and, while the panel is open, for disk I/O and GPU use. While the panel is open it also
+  runs `/usr/sbin/netstat` for network rates, and every 30 seconds `/sbin/route` for the default
+  interface, `/bin/df` for other volumes and `/usr/bin/pmset` for the battery. While the Energy view
+  is open it runs `/usr/bin/top` for energy impact and `/usr/bin/pmset` for the apps keeping the
+  computer awake. It reads the startup disk's space with `statfs` and its name from `/Volumes`.
 - Sends `SIGTERM`, or `SIGKILL` when you force it, to a process you confirm in the panel, as your
   user, after the checks the README describes. This needs no new capability.

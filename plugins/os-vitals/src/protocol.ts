@@ -1,8 +1,12 @@
 export type Tier = 'background' | 'active'
 
-export type ViewName = 'overview' | 'processes'
+export type TopView = 'overview' | 'processes'
 
-export type DefaultView = 'last' | ViewName
+export type DetailView = 'cpu' | 'memory' | 'network' | 'disk' | 'gpu' | 'energy'
+
+export type ViewName = TopView | DetailView
+
+export type DefaultView = 'last' | TopView
 
 export type MemoryPressure = 'normal' | 'warning' | 'critical'
 
@@ -19,6 +23,10 @@ export type MemoryReading = {
   pressure: MemoryPressure | null
 }
 
+export type NetRate = { down: number; up: number }
+
+export type DiskRate = { read: number; write: number }
+
 export type Sample = {
   seq: number
   t: number
@@ -27,6 +35,78 @@ export type Sample = {
   system: number
   cores: number[] | null
   memory: MemoryReading | null
+  net: NetRate | null
+  disk: DiskRate | null
+  gpu: number | null
+}
+
+export type InterfaceKind = 'loopback' | 'tunnel' | 'bridge' | 'wireless-helper' | null
+
+export type InterfaceRate = {
+  name: string
+  kind: InterfaceKind
+  counted: boolean
+  down: number
+  up: number
+}
+
+export type NetworkReading = {
+  t: number
+  down: number
+  up: number
+  packetsIn: number
+  packetsOut: number
+  received: number
+  sent: number
+  defaultInterface: string | null
+  interfaces: InterfaceRate[]
+}
+
+export type DiskReading = {
+  t: number
+  read: number
+  write: number
+  reads: number
+  writes: number
+  readTotal: number
+  writeTotal: number
+}
+
+export type Volume = {
+  name: string
+  mount: string
+  startup: boolean
+  total: number
+  available: number
+}
+
+export type GpuReading = {
+  model: string | null
+  utilization: number
+  renderer: number | null
+  inUse: number | null
+  allocated: number | null
+}
+
+export type BatteryState = 'charging' | 'discharging' | 'charged' | 'finishing' | 'not-charging'
+
+export type BatteryReading = {
+  percent: number
+  onBattery: boolean
+  state: BatteryState | null
+  minutesLeft: number | null
+}
+
+export type BlockerKind = 'system' | 'display'
+
+export type EnergyImpact = { pid: number; name: string; impact: number }
+
+export type SleepBlocker = { pid: number; name: string; kinds: BlockerKind[] }
+
+export type EnergyReading = {
+  t: number
+  impact: EnergyImpact[]
+  blockers: SleepBlocker[] | null
 }
 
 export type Sections = {
@@ -116,7 +196,14 @@ export type PollResult = {
   seq: number
   samples: Sample[]
   current: Current
+  sections: Sections
   memory: MemoryReading | null
+  network: NetworkReading | null
+  disk: DiskReading | null
+  volumes: Volume[] | null
+  gpu: GpuReading | null
+  battery: BatteryReading | null
+  energy: EnergyReading | null
   processes: ProcessPage | null
   intervalMs: number
   historyMs: number

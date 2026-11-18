@@ -1,22 +1,40 @@
 # OS Vitals
 
-A system monitor for Orca. A panel in the right sidebar draws live CPU, memory and processes, and an
-item in the status bar keeps the current numbers in view while you work.
+A system monitor for Orca. A panel in the right sidebar draws live CPU, memory, network, disk, GPU,
+battery and processes, and an item in the status bar keeps the current numbers in view while you
+work.
 
-**Status: in development.** This version reads CPU, memory and processes, and quits processes, on
-macOS, and reads CPU on Linux and Windows. Network, disk, GPU, battery, energy and the alerts
-arrive in later versions; the platform table below says what works today.
+**Status: in development.** This version reads CPU, memory, processes, network, disk, GPU, battery
+and energy, and quits processes, on macOS, and reads CPU on Linux and Windows. The alerts arrive in
+a later version; the platform table below says what works today.
 
 ## What it shows
 
-- **Overview.**
-  - The CPU card: total usage with its user and system parts over the last minutes, the load on
-    each core (performance cores first, then efficiency cores, on Apple silicon), the load average
-    and how long the system has been up.
-  - The memory card: memory in use out of the total, split into app memory, wired, compressed and
-    cached files, with memory pressure and swap. Memory in use is app memory plus wired plus
-    compressed, the same formula Activity Monitor uses.
+- **Overview.** One card per part of the system. Each card's title opens its detail view, and the
+  Overview control at the top of a detail view (or Escape) goes back.
+  - CPU: total usage with its user and system parts over the last minutes, the load on each core
+    (performance cores first, then efficiency cores, on Apple silicon), the load average and how
+    long the system has been up.
+  - Memory: memory in use out of the total, split into app memory, wired, compressed and cached
+    files, with memory pressure and swap. Memory in use is app memory plus wired plus compressed,
+    the same formula Activity Monitor uses.
+  - Network: download and upload rates over time, and the interface that carries the default route.
+  - Disk: read and write rates over time, and the startup disk's used and free space.
+  - GPU: GPU use over time and the GPU memory in use. Hidden on a Mac that reports no GPU reading.
+  - Battery: charge and time left. A Mac without a battery shows an Energy card here instead.
   - The five processes using the most CPU, with a link to the full list.
+- **Detail views.**
+  - CPU: a larger chart with its scale, each core's load over time, and the processes using the
+    most CPU with their CPU time.
+  - Memory: memory in use over time, each part with its size and share, swap, and the processes
+    using the most memory.
+  - Network: rates over time, bytes received and sent since startup, packets per second, and every
+    interface that carried traffic in the last reading.
+  - Disk: rates over time, reads and writes per second, bytes read and written since startup, and
+    every local volume with its used and free space.
+  - GPU: use over time, GPU memory, the renderer's share and the peak over the history.
+  - Energy: the battery, each process's energy impact (the same measure Activity Monitor shows),
+    and the apps that keep the computer awake.
 - **Processes.** Every process with its CPU, memory and PID. Filter by name or PID, sort by any
   column, and load 100 more rows at a time. Select a row (or press Enter or Space on it) to see its
   user, parent, start time, threads, CPU time, memory and command line, and to quit it. Escape
@@ -24,10 +42,27 @@ arrive in later versions; the platform table below says what works today.
 - **Status bar.** `CPU 23% · MEM 61%`, updated at most every 5 seconds and only when a number
   changes. Its tooltip shows the load average and memory. Pressing it opens the panel.
 
+Point at a chart to read the values at that moment; a line marks the moment and a box lists the
+time and each value. A chart can also take keyboard focus (Tab): the left and right arrow keys move
+the marker one reading at a time, Page Up and Page Down ten, Home and End to the oldest and newest,
+and Escape hides it. A screen reader reads each chart's current values and its scale.
+
+Every chart has one scale, labeled at its top. CPU and GPU charts run from 0 to 100%, memory from 0
+to the total. Network and disk charts pick the next round value above the highest reading in view,
+so a burst raises the scale, and the label says so, instead of being cut off.
+
+Sizes and rates use binary units: 1 KB is 1,024 bytes, 1 MB is 1,024 KB and 1 GB is 1,024 MB, the
+way Activity Monitor and `top` count memory. Disk sizes therefore read a little lower than Finder's,
+which counts 1 GB as 1,000,000,000 bytes.
+
 The panel asks its worker for new readings every 2 seconds while it is open (the refresh interval
 setting changes this). When you switch to another sidebar tab or close the sidebar, Orca removes
-the panel and the polling stops with it. The process list is read only while the panel shows it:
-every 2 seconds in the Processes view, every 4 seconds for the Overview's top five.
+the panel and the polling stops with it. While the panel is open the worker also reads network,
+disk and GPU every refresh, and the disk space, battery and default route every 30 seconds. While
+it is closed it keeps only CPU and memory, so the network, disk and GPU charts start empty when
+the panel opens and fill in from then on. The process list is read only while the panel shows it:
+every 2 seconds in the Processes view, every 4 seconds for a top five. Energy impact and the apps
+keeping the computer awake are read every 5 seconds, and only while the Energy view is open.
 
 ## The access it asks for
 
@@ -44,26 +79,33 @@ When you install OS Vitals, Orca asks you to approve this list.
 
 ### Programs it runs
 
-| Program            | When                                                                                                     | Why                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| ------------------ | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/usr/bin/vm_stat` | macOS, every 5 seconds while the status bar or alerts need it, and every refresh while the panel is open | Memory page counts: app memory, wired, compressed and cached files                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `/usr/sbin/sysctl` | macOS, with every `vm_stat`                                                                              | Reads `hw.memsize`, `vm.swapusage` and `kern.memorystatus_vm_pressure_level`: total memory, swap and memory pressure                                                                                                                                                                                                                                                                                                                                                 |
-| `/bin/ps`          | macOS, only while the panel shows processes, when you open a process's details, and right before a quit  | `ps -A -o pid= -o ppid= -o uid= -o pcpu= -o rss= -o time= -o lstart= -o user= -o comm=` lists processes. For details, `ps -p <pid>` adds the command line and `ps -M -p <pid>` counts threads. Before a quit, `ps -p <pid> -o lstart= -o uid= -o comm=` reads that one process again                                                                                                                                                                                 |
-| `/usr/sbin/ioreg`  | macOS, once when the worker starts                                                                       | `ioreg -p IODeviceTree -c IOPlatformDevice` tells performance cores from efficiency cores                                                                                                                                                                                                                                                                                                                                                                            |
-| Orca's own CLI     | Only when you press the status bar item or run the command                                               | Orca has no call that opens a plugin's panel, but its CLI does. The worker runs `orca plugin list --json` to learn its own install key, then `orca plugin open <key> --panel os-vitals --json`. It runs the copy inside Orca's application folder (`Orca.app/Contents/Resources/bin/orca` on macOS, `resources/bin/orca-ide` beside Orca on Linux), never one found on `PATH`. If it cannot find or run it, it shows a notification with the current numbers instead |
+| Program             | When                                                                                                                               | Why                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/usr/bin/vm_stat`  | macOS, every 5 seconds while the status bar or alerts need it, and every refresh while the panel is open                           | Memory page counts: app memory, wired, compressed and cached files                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `/usr/sbin/sysctl`  | macOS, with every `vm_stat`                                                                                                        | Reads `hw.memsize`, `vm.swapusage` and `kern.memorystatus_vm_pressure_level`: total memory, swap and memory pressure                                                                                                                                                                                                                                                                                                                                                 |
+| `/bin/ps`           | macOS, only while the panel shows processes or the Energy view is open, when you open a process's details, and right before a quit | `ps -A -o pid= -o ppid= -o uid= -o pcpu= -o rss= -o time= -o lstart= -o user= -o comm=` lists processes. For details, `ps -p <pid>` adds the command line and `ps -M -p <pid>` counts threads. Before a quit, `ps -p <pid> -o lstart= -o uid= -o comm=` reads that one process again                                                                                                                                                                                 |
+| `/usr/sbin/ioreg`   | macOS, once when the worker starts, then every refresh while the panel is open                                                     | `ioreg -p IODeviceTree -c IOPlatformDevice` tells performance cores from efficiency cores, once. `ioreg -r -d 2 -w 0 -c IOBlockStorageDriver` reads the bytes and operations each disk has read and written. `ioreg -r -d 1 -w 0 -c IOAccelerator` reads GPU use and GPU memory                                                                                                                                                                                      |
+| `/usr/sbin/netstat` | macOS, every refresh while the panel is open                                                                                       | `netstat -ibn` reads the bytes and packets each network interface has received and sent                                                                                                                                                                                                                                                                                                                                                                              |
+| `/sbin/route`       | macOS, every 30 seconds while the panel is open                                                                                    | `route -n get default` names the interface that carries the default route                                                                                                                                                                                                                                                                                                                                                                                            |
+| `/bin/df`           | macOS, every 30 seconds while the panel is open                                                                                    | `df -kPl` lists other local volumes and their free space. The startup disk's space comes from the file system directly, with no program                                                                                                                                                                                                                                                                                                                              |
+| `/usr/bin/pmset`    | macOS, once when the worker starts, every 30 seconds while the panel is open, and every 5 seconds while the Energy view is open    | `pmset -g batt` reads the battery's charge, whether it is charging, and the time left. `pmset -g assertions`, only in the Energy view, lists the apps that keep the computer awake                                                                                                                                                                                                                                                                                   |
+| `/usr/bin/top`      | macOS, every 5 seconds, only while the Energy view is open                                                                         | `top -l 2 -s 1 -o power -n 30 -stats pid,power` measures each process's energy impact. It takes two samples a second apart and only the second is used, because the first reports zero for every process                                                                                                                                                                                                                                                             |
+| Orca's own CLI      | Only when you press the status bar item or run the command                                                                         | Orca has no call that opens a plugin's panel, but its CLI does. The worker runs `orca plugin list --json` to learn its own install key, then `orca plugin open <key> --panel os-vitals --json`. It runs the copy inside Orca's application folder (`Orca.app/Contents/Resources/bin/orca` on macOS, `resources/bin/orca-ide` beside Orca on Linux), never one found on `PATH`. If it cannot find or run it, it shows a notification with the current numbers instead |
 
 Every program runs directly by its full path, without a shell, with `LC_ALL=C`, a timeout of 1.5
-seconds (10 seconds for Orca's CLI) and a cap on its output. A program that fails three times in a
+seconds (4 seconds for `top`, 10 seconds for Orca's CLI) and a cap on its output. A program that fails three times in a
 row turns its section off instead of failing the whole reading. None of them needs administrator
 rights.
 
 ### What it reads
 
-| Source                                                                     | What for                                                                  |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Node's `os` module: CPU times, load average, uptime, total and free memory | The CPU card, the status bar, and memory on Windows                       |
-| The programs above                                                         | Memory, processes and core types on macOS                                 |
-| Its own file path                                                          | Telling an installed copy from a development copy when it opens its panel |
+| Source                                                                      | What for                                                                       |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Node's `os` module: CPU times, load average, uptime, total and free memory  | The CPU card, the status bar, and memory on Windows                            |
+| The programs above                                                          | Memory, processes, core types, network, disk, GPU, battery and energy on macOS |
+| The startup disk's size and free space (`statfs` of `/System/Volumes/Data`) | The Disk card and view                                                         |
+| The names of the links in `/Volumes`                                        | The startup disk's name, such as Macintosh HD                                  |
+| Its own file path                                                           | Telling an installed copy from a development copy when it opens its panel      |
 
 Process names and command lines are shown in the panel as plain text and never leave your machine.
 
@@ -99,7 +141,8 @@ nothing if a check fails:
    `/usr/libexec/`, `/usr/sbin/` or `/sbin/`; `loginwindow`, `WindowServer`, `Dock`, `Finder`,
    `WindowManager` and `launchd`; Orca's helpers outside its application, meaning any path that
    contains `/orca/daemon-host/` (quitting the terminal daemon would end every Orca terminal and
-   agent) and anything whose name starts with `Orca`; and on Linux `systemd`, `gnome-shell`,
+   agent), the process named `Orca`, and anything whose name starts with `Orca` followed by a
+   space, such as `Orca Helper` (an unrelated app such as OrcaSlicer is not protected); and on Linux `systemd`, `gnome-shell`,
    `Xorg`, `Xwayland`, `kwin_*`, `plasmashell`, `gdm*`, `sddm`, `dbus-daemon`, `dbus-broker`,
    `pipewire`, `wireplumber`, `sshd` and `login`.
 
@@ -126,19 +169,23 @@ protected: stopping a runaway one is the point.
 
 In development: the table shows this version, not the planned 1.0.
 
-| Feature                                     | macOS   | Linux   | Windows and others                        |
-| ------------------------------------------- | ------- | ------- | ----------------------------------------- |
-| CPU total, user, system                     | Yes     | Yes     | Yes                                       |
-| Per-core load                               | Yes     | Yes     | Yes                                       |
-| Performance and efficiency cores            | Yes     | No      | No                                        |
-| Load average                                | Yes     | Yes     | No                                        |
-| Uptime                                      | Yes     | Yes     | Yes                                       |
-| Memory                                      | Yes     | Not yet | Used and free only                        |
-| Processes and their details                 | Yes     | Not yet | No                                        |
-| Quitting a process                          | Yes     | Not yet | No                                        |
-| Status bar item                             | Yes     | Yes     | Yes                                       |
-| Opening the panel from the status bar       | Yes     | Yes     | No: shows a notification with the numbers |
-| Network, disk, GPU, battery, energy, alerts | Not yet | Not yet | No                                        |
+| Feature                               | macOS   | Linux   | Windows and others                        |
+| ------------------------------------- | ------- | ------- | ----------------------------------------- |
+| CPU total, user, system               | Yes     | Yes     | Yes                                       |
+| Per-core load                         | Yes     | Yes     | Yes                                       |
+| Performance and efficiency cores      | Yes     | No      | No                                        |
+| Load average                          | Yes     | Yes     | No                                        |
+| Uptime                                | Yes     | Yes     | Yes                                       |
+| Memory                                | Yes     | Not yet | Used and free only                        |
+| Processes and their details           | Yes     | Not yet | No                                        |
+| Quitting a process                    | Yes     | Not yet | No                                        |
+| Status bar item                       | Yes     | Yes     | Yes                                       |
+| Opening the panel from the status bar | Yes     | Yes     | No: shows a notification with the numbers |
+| Network, disk I/O and disk space      | Yes     | Not yet | No                                        |
+| GPU use and memory                    | Yes     | Not yet | No                                        |
+| Battery                               | Yes     | Not yet | No                                        |
+| Energy impact and what keeps it awake | Yes     | Not yet | No                                        |
+| Alerts                                | Not yet | Not yet | Not yet                                   |
 
 OS Vitals needs the Orca desktop app. Orca's browser client loads a panel as a single inlined
 document, and this panel is made of several files.
@@ -157,10 +204,16 @@ node tools/os-vitals/serve.ts                   # the panel in a browser with a 
 
 `tools/os-vitals/serve.ts` serves `tools/os-vitals/harness.html`, which loads the real panel files
 with a fake `window.orca` that answers with generated readings. `?scenario=` picks `loading`,
-`error`, `unsupported`, `windows`, `flaky`, `empty` or `pressure`, `?theme=light` the light theme,
-`?view=processes` the Processes view, and `?act=` runs steps after load (`tab:` or `click:` a button
-by its text, `filter:<text>`, `select:<name>`, `focus:<name>`, `key:<key>`, `wait:<ms>`, `probe`,
-separated by commas). The `t` key switches theme. `tools/os-vitals/gallery.html` shows several
-widths and states side by side, and `tools/os-vitals/gallery-quit.html` every step of quitting a
+`error`, `unsupported`, `windows`, `flaky`, `empty`, `pressure`, `desktop` (no battery), `nogpu`,
+`fresh` (the panel just opened, so network, disk and GPU history is short) or `spike` (a network
+burst), `?theme=light` the light theme, `?view=` a view (`processes`, `cpu`, `memory`, `network`,
+`disk`, `gpu` or `energy`), `?energy=wait` keeps the Energy view measuring, and `?act=` runs steps
+after load (`tab:` or `click:` a button by its text, `filter:<text>`, `select:<name>`,
+`focus:<name>`, `key:<key>`, `hover:<chart>:<fraction>`, `chart:<chart>` to focus a chart,
+`wait:<ms>`, `probe`, separated by commas). The `t` key switches theme.
+`tools/os-vitals/gallery.html` shows several widths and states side by side,
+`tools/os-vitals/gallery-views.html` the Overview and every detail view in both themes,
+`tools/os-vitals/gallery-states.html` chart hover and keyboard, 220 px, no battery, no GPU, a
+spike and a freshly opened panel, and `tools/os-vitals/gallery-quit.html` every step of quitting a
 process. The fake quits `node` at once, keeps `vite` running until it is forced, and refuses `tsc`
 (`changed`), `agent` (`not_permitted`) and `watchman` (`gone`).

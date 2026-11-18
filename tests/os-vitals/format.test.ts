@@ -3,11 +3,16 @@ import { test } from 'node:test'
 import {
   ago,
   bytes,
+  clockTime,
   cpuTime,
   duration,
   gigabytes,
   loadAverage,
   percent,
+  perSecond,
+  portion,
+  rate,
+  rateScale,
   significant
 } from '../../plugins/os-vitals/src/format.ts'
 
@@ -47,4 +52,54 @@ test('durations, CPU times and load averages', () => {
   assert.equal(loadAverage([5.49, 4.791, 4.3]), '5.49 · 4.79 · 4.30')
   assert.equal(ago(0, 8040000), '2 h 14 min ago')
   assert.equal(ago(0, 30000), 'under a minute ago')
+})
+
+test('rates use binary units, whole numbers below a megabyte and one decimal above', () => {
+  assert.equal(rate(0), '0 B/s')
+  assert.equal(rate(900), '900 B/s')
+  assert.equal(rate(310 * KB), '310 KB/s')
+  assert.equal(rate(12.4 * KB), '12 KB/s')
+  assert.equal(rate(2.4 * MB), '2.4 MB/s')
+  assert.equal(rate(12.44 * MB), '12.4 MB/s')
+  assert.equal(rate(150 * MB), '150 MB/s')
+  assert.equal(rate(1.5 * GB), '1.5 GB/s')
+  assert.equal(rate(-1), '–')
+  assert.equal(rate(null), '–')
+})
+
+test('bytes reach terabytes', () => {
+  assert.equal(bytes(2 * 1024 * GB), '2 TB')
+  assert.equal(bytes(1.25 * 1024 * GB), '1.25 TB')
+})
+
+test('a rate scale is the next nice value above the visible peak, and labels it', () => {
+  assert.deepEqual(rateScale(5.2 * MB), { max: 6 * MB, top: '6 MB/s', mid: '3' })
+  assert.deepEqual(rateScale(2.9 * MB), { max: 4 * MB, top: '4 MB/s', mid: '2' })
+  assert.deepEqual(rateScale(700 * KB), { max: 800 * KB, top: '800 KB/s', mid: '400' })
+  assert.deepEqual(rateScale(790 * KB), { max: 1 * MB, top: '1 MB/s', mid: '0.5' })
+  assert.deepEqual(rateScale(0), { max: KB, top: '1 KB/s', mid: '0.5' })
+  assert.deepEqual(rateScale(Number.NaN), { max: KB, top: '1 KB/s', mid: '0.5' })
+  assert.deepEqual(rateScale(45 * MB), { max: 50 * MB, top: '50 MB/s', mid: '25' })
+})
+
+test('a spike raises the scale instead of being cut off', () => {
+  const quiet = rateScale(200 * KB)
+  const spiked = rateScale(80 * MB)
+  assert.ok(quiet.max >= 200 * KB)
+  assert.ok(spiked.max >= 80 * MB)
+  assert.equal(spiked.top, '100 MB/s')
+})
+
+test('clock time is hours, minutes and seconds', () => {
+  assert.equal(clockTime(new Date(2026, 10, 17, 14, 32, 10).getTime()), '14:32:10')
+  assert.equal(clockTime(new Date(2026, 10, 17, 9, 5, 0).getTime()), '09:05:00')
+})
+
+test('a portion shares the unit of the whole', () => {
+  assert.equal(portion(375 * GB, 494 * GB), '375 of 494 GB')
+  assert.equal(portion(1.2 * 1024 * GB, 2 * 1024 * GB), '1.2 of 2 TB')
+  assert.equal(portion(300 * MB, 900 * MB), '300 of 900 MB')
+  assert.equal(portion(1, 0), '–')
+  assert.equal(perSecond(1240.4), '1,240 /s')
+  assert.equal(perSecond(null), '–')
 })

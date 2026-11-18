@@ -1,0 +1,7 @@
+2026-11-17 17:00:40 -0300 
+Assertion status system-wide:
+   UserIsActive                   0
+   PreventUserIdleSystemSleep     0
+Listed by owning process:
+   pid 341(powerd): [0x0001712f00018910] 07:38:00 PreventUserIdleSystemSleep named: "Powerd - Prevent sleep while display is on"  
+Kernel Assertions: 0x0

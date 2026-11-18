@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>OS Vitals detail states</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 16px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 16px;
+        background: #6b6b73;
+        font:
+          12px system-ui,
+          sans-serif;
+      }
+      figure {
+        margin: 0;
+      }
+      figcaption {
+        margin-bottom: 4px;
+        color: #ffffff;
+      }
+      iframe {
+        display: block;
+        border: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <figure>
+      <figcaption>Overview, dark, 220 px</figcaption>
+      <iframe
+        title="Overview, dark, 220 px"
+        src="harness.html?theme=dark"
+        width="220"
+        height="1700"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Network, dark, 220 px</figcaption>
+      <iframe
+        title="Network, dark, 220 px"
+        src="harness.html?theme=dark&amp;view=network"
+        width="220"
+        height="1000"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>CPU card, pointer hover</figcaption>
+      <iframe
+        title="CPU card, pointer hover"
+        src="harness.html?theme=dark&amp;act=wait:600,hover:0:0.72"
+        width="400"
+        height="420"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Network view, pointer hover, light</figcaption>
+      <iframe
+        title="Network view, pointer hover, light"
+        src="harness.html?theme=light&amp;view=network&amp;act=wait:600,hover:0:0.35"
+        width="400"
+        height="420"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>CPU view, keyboard on the chart</figcaption>
+      <iframe
+        title="CPU view, keyboard on the chart"
+        src="harness.html?theme=dark&amp;view=cpu&amp;act=wait:600,chart:0,key:ArrowLeft,key:ArrowLeft,key:ArrowLeft,key:ArrowLeft"
+        width="400"
+        height="420"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Network view, a spike raises the scale</figcaption>
+      <iframe
+        title="Network view, a spike raises the scale"
+        src="harness.html?theme=dark&amp;view=network&amp;scenario=spike"
+        width="400"
+        height="420"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Overview, desktop with no battery</figcaption>
+      <iframe
+        title="Overview, desktop with no battery"
+        src="harness.html?theme=dark&amp;scenario=desktop"
+        width="400"
+        height="1580"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Energy view, desktop with no battery</figcaption>
+      <iframe
+        title="Energy view, desktop with no battery"
+        src="harness.html?theme=light&amp;view=energy&amp;scenario=desktop"
+        width="400"
+        height="620"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Overview, no GPU reading</figcaption>
+      <iframe
+        title="Overview, no GPU reading"
+        src="harness.html?theme=dark&amp;scenario=nogpu"
+        width="400"
+        height="1450"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Overview, panel just opened: new series start empty</figcaption>
+      <iframe
+        title="Overview, panel just opened: new series start empty"
+        src="harness.html?theme=dark&amp;scenario=fresh"
+        width="400"
+        height="1100"
+      ></iframe>
+    </figure>
+    <figure>
+      <figcaption>Energy view while measuring</figcaption>
+      <iframe
+        title="Energy view while measuring"
+        src="harness.html?theme=dark&amp;view=energy&amp;energy=wait"
+        width="400"
+        height="620"
+      ></iframe>
+    </figure>
+  </body>
+</html>
