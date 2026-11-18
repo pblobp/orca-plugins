@@ -69,7 +69,7 @@ export function createTopCard(actions: PanelActions) {
   }
 
   function update(model: PanelModel): void {
-    element.hidden = !model.hello.sections.processes
+    element.hidden = !model.sections.processes
     const page = model.processes
     setText(allLabel, page ? `All ${page.total.toLocaleString('en-US')}` : 'All')
     show(page ? page.rows : [])

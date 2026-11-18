@@ -1,26 +1,44 @@
 import type {
+  BatteryReading,
   Current,
   DetailResult,
+  DetailView,
+  DiskReading,
+  EnergyReading,
+  GpuReading,
   HelloResult,
   MemoryReading,
+  NetworkReading,
   PollInput,
   PollResult,
   ProcessPage,
   QuitInput,
   QuitResult,
   Sample,
-  ViewName
+  Sections,
+  TopView,
+  ViewName,
+  Volume
 } from '../src/protocol.ts'
+import { createCpuView } from './details/cpu.ts'
+import { createDiskView } from './details/disk.ts'
+import { createEnergyView } from './details/energy.ts'
+import { createGpuView } from './details/gpu.ts'
+import { createMemoryView } from './details/memory.ts'
+import { createNetworkView } from './details/network.ts'
 import { el, icon, PAUSE_ICON, PLAY_ICON, setAttr, setText } from './dom.ts'
 import { interval } from './format.ts'
-import type { PanelActions, PanelModel, View } from './state.ts'
+import { detailAvailable, type PanelActions, type PanelModel, type View } from './state.ts'
 import { createOverview } from './views/overview.ts'
 import { createProcesses } from './views/processes.ts'
 
 const REQUEST_TIMEOUT_MS = 10000
 const RETRY_MAX_MS = 10000
+const ENERGY_INTERVAL_MS = 5000
 const VIEW_KEY = 'os-vitals.view'
-const VIEW_NAMES: readonly ViewName[] = ['overview', 'processes']
+const TOP_VIEWS: readonly TopView[] = ['overview', 'processes']
+const DETAIL_VIEWS: readonly DetailView[] = ['cpu', 'memory', 'network', 'disk', 'gpu', 'energy']
+const VIEW_NAMES: readonly ViewName[] = [...TOP_VIEWS, ...DETAIL_VIEWS]
 
 type Phase = 'loading' | 'ready' | 'error' | 'unsupported'
 
@@ -31,7 +49,14 @@ type PanelState = {
   seq: number
   samples: Sample[]
   current: Current | null
+  sections: Sections | null
   memory: MemoryReading | null
+  network: NetworkReading | null
+  disk: DiskReading | null
+  volumes: Volume[] | null
+  gpu: GpuReading | null
+  battery: BatteryReading | null
+  energy: EnergyReading | null
   processes: ProcessPage | null
   intervalMs: number
   historyMs: number
@@ -49,7 +74,14 @@ const state: PanelState = {
   seq: 0,
   samples: [],
   current: null,
+  sections: null,
   memory: null,
+  network: null,
+  disk: null,
+  volumes: null,
+  gpu: null,
+  battery: null,
+  energy: null,
   processes: null,
   intervalMs: 2000,
   historyMs: 5 * 60 * 1000,
@@ -88,6 +120,14 @@ function initialView(hello: HelloResult): ViewName {
   return savedView() ?? 'overview'
 }
 
+function isDetail(view: ViewName): view is DetailView {
+  return DETAIL_VIEWS.some((name) => name === view)
+}
+
+function topOf(view: ViewName): TopView {
+  return view === 'processes' ? 'processes' : 'overview'
+}
+
 function tabButton(label: string, view: ViewName): HTMLButtonElement {
   const button = el('button', { className: 'vt-tab', text: label, attrs: { type: 'button' } })
   button.addEventListener('click', () => {
@@ -98,7 +138,7 @@ function tabButton(label: string, view: ViewName): HTMLButtonElement {
 }
 
 const app = document.getElementById('app') ?? document.body
-const tabs: Record<ViewName, HTMLButtonElement> = {
+const tabs: Record<TopView, HTMLButtonElement> = {
   overview: tabButton('Overview', 'overview'),
   processes: tabButton('Processes', 'processes')
 }
@@ -122,8 +162,15 @@ const banner = el('div', { className: 'vt-banner', attrs: { role: 'status' } }, 
   bannerRetry
 ])
 const content = el('main', { className: 'vt-content' })
+const openers = new Map<DetailView, HTMLElement>()
 const actions: PanelActions = {
   showProcesses: () => showView('processes'),
+  openView(view, opener) {
+    if (opener) openers.set(view, opener)
+    showView(view)
+    views[view].enter?.()
+  },
+  back: () => goBack(),
   queryChanged: () => requestPoll(),
   requestDetail: (pid: number): Promise<DetailResult> =>
     orca.plugin.request('os-vitals.process.detail', { pid }, { timeoutMs: REQUEST_TIMEOUT_MS }),
@@ -132,7 +179,13 @@ const actions: PanelActions = {
 }
 const views: Record<ViewName, View> = {
   overview: createOverview(actions),
-  processes: createProcesses(actions)
+  processes: createProcesses(actions),
+  cpu: createCpuView(actions),
+  memory: createMemoryView(actions),
+  network: createNetworkView(actions),
+  disk: createDiskView(actions),
+  gpu: createGpuView(actions),
+  energy: createEnergyView(actions)
 }
 
 const stateTitle = el('h2', { className: 'vt-title' })
@@ -156,12 +209,22 @@ let pollAgain = false
 let pausedIcon: boolean | null = null
 
 function showView(view: ViewName): void {
+  const leaving = state.view
   state.view = view
   state.viewChosen = true
   state.processes = null
+  if (view !== 'energy') state.energy = null
   saveView(view)
+  if (leaving !== view) window.scrollTo(0, 0)
   render()
   requestPoll()
+}
+
+function goBack(): void {
+  const from = state.view
+  showView('overview')
+  const opener = isDetail(from) ? openers.get(from) : undefined
+  if (opener && opener.isConnected) opener.focus()
 }
 
 function requestPoll(): void {
@@ -177,9 +240,16 @@ function model(): PanelModel | null {
   if (!state.hello) return null
   return {
     hello: state.hello,
+    sections: state.sections ?? state.hello.sections,
     samples: state.samples,
     current: state.current,
     memory: state.memory,
+    network: state.network,
+    disk: state.disk,
+    volumes: state.volumes,
+    gpu: state.gpu,
+    battery: state.battery,
+    energy: state.energy,
     processes: state.processes,
     intervalMs: state.intervalMs,
     historyMs: state.historyMs
@@ -206,7 +276,14 @@ function merge(result: PollResult): void {
   state.run = result.run
   state.seq = result.seq
   state.current = result.current
+  state.sections = result.sections
   state.memory = result.memory
+  state.network = result.network
+  state.disk = result.disk
+  state.volumes = result.volumes
+  state.gpu = result.gpu
+  state.battery = result.battery
+  state.energy = result.energy
   state.processes = result.processes
   state.intervalMs = result.intervalMs
   state.historyMs = result.historyMs
@@ -312,11 +389,12 @@ function renderState(): void {
 }
 
 function render(): void {
-  for (const name of VIEW_NAMES) {
-    if (name === state.view) tabs[name].setAttribute('aria-current', 'page')
+  for (const name of TOP_VIEWS) {
+    if (name === topOf(state.view)) tabs[name].setAttribute('aria-current', 'page')
     else tabs[name].removeAttribute('aria-current')
   }
-  setText(intervalLabel, state.paused ? 'Paused' : interval(state.intervalMs))
+  const every = state.view === 'energy' ? ENERGY_INTERVAL_MS : state.intervalMs
+  setText(intervalLabel, state.paused ? 'Paused' : interval(every))
   setAttr(pauseButton, 'aria-label', state.paused ? 'Resume sampling' : 'Pause sampling')
   if (pausedIcon !== state.paused) {
     pauseButton.replaceChildren(icon(state.paused ? PLAY_ICON : PAUSE_ICON))
@@ -330,10 +408,14 @@ function render(): void {
     renderState()
     return
   }
+  const current = model()
+  if (current && isDetail(state.view) && !detailAvailable(state.view, current)) {
+    state.view = 'overview'
+    saveView('overview')
+  }
   const view = views[state.view]
   content.dataset.view = state.view
   showOnly(view.element)
-  const current = model()
   if (current) view.update(current)
 }
 
@@ -361,8 +443,15 @@ new ResizeObserver(() => {
 }).observe(content)
 
 document.addEventListener('keydown', (event) => {
-  if (event.key !== 'Escape' || state.phase !== 'ready') return
-  if (views[state.view].escape()) event.preventDefault()
+  if (event.key !== 'Escape' || state.phase !== 'ready' || event.defaultPrevented) return
+  if (views[state.view].escape()) {
+    event.preventDefault()
+    return
+  }
+  if (isDetail(state.view)) {
+    event.preventDefault()
+    goBack()
+  }
 })
 
 orca.on('theme', () => render())

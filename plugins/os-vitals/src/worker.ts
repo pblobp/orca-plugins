@@ -14,7 +14,8 @@ import type {
   PollInput,
   PollResult,
   QuitResult,
-  Sample
+  Sample,
+  ViewName
 } from './protocol.ts'
 import {
   createOfferer,
@@ -35,6 +36,16 @@ import { createStatusBar, memoryPercent, type StatusBarUpdate } from './status.t
 
 export const OPEN_COMMAND = 'os-vitals.open'
 export const CORE_HISTORY_LIMIT = 120
+export const VIEWS: readonly ViewName[] = [
+  'overview',
+  'processes',
+  'cpu',
+  'memory',
+  'network',
+  'disk',
+  'gpu',
+  'energy'
+]
 
 export type VitalsDeps = {
   clock: Clock
@@ -66,7 +77,8 @@ function readInput(input: unknown): PollInput {
     out.since = raw.since
   }
   if (typeof raw.run === 'string' && raw.run.length <= 64) out.run = raw.run
-  if (raw.view === 'overview' || raw.view === 'processes') out.view = raw.view
+  const view = VIEWS.find((name) => name === raw.view)
+  if (view) out.view = view
   const query = readQuery(raw.processes)
   if (query) out.processes = query
   return out
@@ -138,6 +150,7 @@ export async function startVitals(orca: OrcaWorkerApi, deps: VitalsDeps): Promis
     {
       clock,
       provider,
+      selfPid: deps.quit.selfPid,
       onSample: (sample) => showStatus(sample, false),
       onError: (error) => orca.log(`OS Vitals could not read the system: ${message(error)}`)
     },
@@ -195,7 +208,14 @@ export async function startVitals(orca: OrcaWorkerApi, deps: VitalsDeps): Promis
         seq: sampler.seq(),
         samples: reset ? trimCores(samples) : samples,
         current: { load: provider.load(), uptime: provider.uptime() },
+        sections: provider.sections(),
         memory: sampler.memory(),
+        network: sampler.network(),
+        disk: sampler.disk(),
+        volumes: sampler.volumes(),
+        gpu: sampler.gpu(),
+        battery: sampler.battery(),
+        energy: input.view === 'energy' ? sampler.energy() : null,
         processes:
           query && snapshot
             ? withOffers(queryProcesses(snapshot, query), createOfferer(deps.quit, snapshot.rows))

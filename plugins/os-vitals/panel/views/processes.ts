@@ -626,7 +626,7 @@ export function createProcesses(actions: PanelActions): View {
 
   function render(): void {
     if (!model) return
-    const supported = model.hello.sections.processes
+    const supported = model.sections.processes
     list.hidden = !supported
     unsupported.hidden = supported
     if (!supported) return
@@ -654,7 +654,7 @@ export function createProcesses(actions: PanelActions): View {
       render()
     },
     query: (current) =>
-      current.hello.sections.processes ? { sort, direction, filter, limit, offset: 0 } : null,
+      current.sections.processes ? { sort, direction, filter, limit, offset: 0 } : null,
     escape() {
       if (dialog.isOpen() || !selected) return false
       close()

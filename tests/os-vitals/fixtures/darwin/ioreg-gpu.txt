@@ -1,0 +1,8 @@
++-o AGXAcceleratorG16X  <class AGXAcceleratorG16X, id 0x1000004c5, registered, matched, active, busy 0 (3093 ms), retain 94>
+    {
+      "SchedulerState" = {"Stamps"=(),"BusyWorkQueues"=()}
+      "PerformanceStatistics" = {"In use system memory (driver)"=0,"Alloc system memory"=5785731072,"Tiler Utilization %"=8,"recoveryCount"=0,"lastRecoveryTime"=0,"Renderer Utilization %"=22,"TiledSceneBytes"=4161536,"Device Utilization %"=22,"SplitSceneCount"=0,"Allocated PB Size"=112852992,"In use system memory"=845266944}
+      "model" = "Apple M4 Pro"
+      "gpu-core-count" = 20
+      "IOClass" = "AGXAcceleratorG16X"
+    }

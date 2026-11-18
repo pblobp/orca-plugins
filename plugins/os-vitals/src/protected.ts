@@ -26,7 +26,8 @@ export const PROTECTED_RULES: readonly ProtectedRule[] = [
     group: 'orca',
     why: 'runs every Orca terminal and agent'
   },
-  { match: 'name-prefix', value: 'Orca', group: 'orca', why: 'part of Orca' },
+  { match: 'name', value: 'Orca', group: 'orca', why: 'Orca itself' },
+  { match: 'name-prefix', value: 'Orca ', group: 'orca', why: "one of Orca's helpers" },
   { match: 'name', value: 'systemd', group: 'system', why: 'starts every other process' },
   { match: 'name', value: 'gnome-shell', group: 'system', why: 'the GNOME desktop' },
   { match: 'name', value: 'Xorg', group: 'system', why: 'the display server' },

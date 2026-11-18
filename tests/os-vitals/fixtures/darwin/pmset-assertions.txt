@@ -1,0 +1,44 @@
+2026-11-17 17:00:40 -0300 
+Assertion status system-wide:
+   BackgroundTask                 0
+   ApplePushServiceTask           0
+   UserIsActive                   1
+   PreventUserIdleDisplaySleep    1
+   SoftwareUpdateTask             0
+   PreventSystemSleep             1
+   PreventSystemSleepSecurityIndicator 0
+   ExternalMedia                  0
+   InternalPreventDisplaySleep    1
+   PreventUserIdleSystemSleep     1
+   NetworkClientActive            0
+Listed by owning process:
+   pid 511(coreaudiod): [0x0001db6b000181c8] 00:04:44 PreventUserIdleSystemSleep named: "com.apple.audio.AudioTap-0000.context.preventuseridlesleep"  
+	Created for PID: 726. 
+	Resources: audio-in 0000 
+   pid 511(coreaudiod): [0x0001db6a00018c88] 00:04:44 PreventUserIdleSystemSleep named: "com.apple.audio.BuiltInSpeakerDevice.context.preventuseridlesleep"  
+	Created for PID: 1790. 
+	Resources: BuiltInSpeakerDevice 
+   pid 69806(caffeinate): [0x0001dc7d0001a3e3] 00:00:10 PreventUserIdleSystemSleep named: "caffeinate command-line tool"  
+	Details: caffeinate asserting for 300 secs
+	Localized=THE CAFFEINATE TOOL IS PREVENTING SLEEP.
+	Timeout will fire in 290 secs Action=TimeoutActionRelease
+   pid 36800(caffeinate): [0x000067250001a041] 26:33:05 PreventUserIdleSystemSleep named: "caffeinate command-line tool"  
+	Details: caffeinate asserting on behalf of Process ID 36701
+	Created for PID: 36701. 
+	Localized=THE CAFFEINATE TOOL IS PREVENTING SLEEP.
+   pid 36800(caffeinate): [0x000067250007a042] 26:33:05 PreventSystemSleep named: "caffeinate command-line tool"  
+	Details: caffeinate asserting on behalf of Process ID 36701
+	Created for PID: 36701. 
+	Localized=THE CAFFEINATE TOOL IS PREVENTING SLEEP.
+   pid 397(WindowServer): [0x0001bf5c00099dc3] 00:00:00 UserIsActive named: "com.apple.iohideventsystem.queue.tickle serviceID:100000cac service:AppleHIDKeyboardEventDriverV2 product:Apple Internal Keyboard / Trackpad eventType:3"  
+	Timeout will fire in 600 secs Action=TimeoutActionRelease
+   pid 73362(Example App): [0x000086f40001876c] 24:17:22 NoIdleSleepAssertion named: "Electron"  
+   pid 1637(Example Browser Helper (Renderer)): [0x0001db6b0001a3ae] 00:04:44 NoIdleSleepAssertion named: "Playing audio"  
+   pid 1637(Example Browser Helper (Renderer)): [0x00019848000196c9] 04:51:10 NoDisplaySleepAssertion named: "Playing video"  
+   pid 2075(Example Keeper): [0x000079280005845c] 25:16:14 PreventUserIdleDisplaySleep named: "Example Keeper (Display)"  
+   pid 341(powerd): [0x0001712f00018910] 07:38:00 PreventUserIdleSystemSleep named: "Powerd - Prevent sleep while display is on"  
+   pid 341(powerd): [0x0001db3300108b67] 00:00:15 InternalPreventDisplaySleep named: "com.apple.powermanagement.delayDisplayOff"  
+	Timeout will fire in 284 secs Action=TimeoutActionTurnOff
+Kernel Assertions: 0x104=USB,MAGICWAKE
+   id=1015  level=255 0x4=USB creat=16/11/26, 12:09 description=com.apple.usb.externaldevice.00100000 owner=Example Cable
+   id=1017  level=255 0x100=MAGICWAKE creat=16/11/26, 11:57  mod=16/11/26, 17:24 description=en0 owner=IOSkywalkNetworkBSDClient

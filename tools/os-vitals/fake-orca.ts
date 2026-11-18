@@ -1,21 +1,37 @@
 import { queryProcesses, readQuery, withOffers } from '../../plugins/os-vitals/src/processes.ts'
 import { createOfferer, readQuitInput } from '../../plugins/os-vitals/src/quit.ts'
 import type {
+  BatteryReading,
   CoreInfo,
   DetailResult,
+  EnergyReading,
+  GpuReading,
   HelloResult,
   LoadAverage,
   MemoryReading,
+  NetworkReading,
   PollInput,
   PollResult,
   ProcessRow,
   QuitResult,
   Sample,
-  Sections
+  Sections,
+  Volume
 } from '../../plugins/os-vitals/src/protocol.ts'
 
 type Scenario =
-  'normal' | 'loading' | 'error' | 'unsupported' | 'windows' | 'flaky' | 'empty' | 'pressure'
+  | 'normal'
+  | 'loading'
+  | 'error'
+  | 'unsupported'
+  | 'windows'
+  | 'flaky'
+  | 'empty'
+  | 'pressure'
+  | 'desktop'
+  | 'nogpu'
+  | 'fresh'
+  | 'spike'
 type Theme = 'dark' | 'light'
 type Handler = (payload: unknown) => unknown
 
@@ -27,8 +43,13 @@ const SCENARIOS: readonly Scenario[] = [
   'windows',
   'flaky',
   'empty',
-  'pressure'
+  'pressure',
+  'desktop',
+  'nogpu',
+  'fresh',
+  'spike'
 ]
+const VIEWS = ['overview', 'processes', 'cpu', 'memory', 'network', 'disk', 'gpu', 'energy']
 
 const THEMES: Record<Theme, Record<string, string>> = {
   dark: {
@@ -79,6 +100,22 @@ const THEMES: Record<Theme, Record<string, string>> = {
 
 const params = new URLSearchParams(location.search)
 const scenario: Scenario = SCENARIOS.find((name) => name === params.get('scenario')) ?? 'normal'
+const requestedView = VIEWS.find((name) => name === params.get('view')) ?? null
+const frameStorage = new Map<string, string>()
+if (requestedView) frameStorage.set('os-vitals.view', requestedView)
+Object.defineProperty(globalThis, 'localStorage', {
+  configurable: true,
+  value: {
+    getItem: (key: string) => frameStorage.get(key) ?? null,
+    setItem: (key: string, value: string) => frameStorage.set(key, String(value)),
+    removeItem: (key: string) => frameStorage.delete(key),
+    clear: () => frameStorage.clear(),
+    key: (index: number) => [...frameStorage.keys()][index] ?? null,
+    get length() {
+      return frameStorage.size
+    }
+  }
+})
 let theme: Theme = params.get('theme') === 'light' ? 'light' : 'dark'
 const listeners = new Map<string, Set<Handler>>()
 
@@ -118,6 +155,14 @@ const next = random(11)
 const samples: Sample[] = []
 let user = 18
 let system = 6
+let down = 2.2 * MB
+let up = 300 * 1024
+let read = 9 * MB
+let write = 3 * MB
+let gpuUse = 24
+const activeFrom = scenario === 'fresh' ? Date.now() - 40 * 1000 : startedAt
+const hasGpu = scenario !== 'nogpu' && !windows
+const hasBattery = scenario !== 'desktop' && !windows
 const coreLoad = Array.from({ length: CORE_COUNT }, (_, index) => Math.max(4, 62 - index * 4))
 let polls = 0
 
@@ -321,6 +366,14 @@ function generateUntil(now: number): void {
     for (let index = 0; index < coreLoad.length; index++) {
       coreLoad[index] = clamp(coreLoad[index] + (next() - 0.5) * 18, 1, 99)
     }
+    down = clamp(down * (0.8 + next() * 0.4) + (next() > 0.93 ? 3 * MB : 0), 40 * 1024, 5.5 * MB)
+    up = clamp(up * (0.8 + next() * 0.4), 20 * 1024, 1.4 * MB)
+    read = clamp(read * (0.75 + next() * 0.5) + (next() > 0.9 ? 12 * MB : 0), 200 * 1024, 30 * MB)
+    write = clamp(write * (0.75 + next() * 0.5), 100 * 1024, 9 * MB)
+    gpuUse = clamp(gpuUse + (next() - 0.5) * 10, 3, 72)
+    const spike =
+      scenario === 'spike' && Math.abs(t - (startedAt + HISTORY_MS * 0.55)) < STEP_MS * 2
+    const active = t >= activeFrom && !windows
     samples.push({
       seq: samples.length + 1,
       t,
@@ -328,7 +381,10 @@ function generateUntil(now: number): void {
       user: round1(user),
       system: round1(system),
       cores: coreLoad.map(round1),
-      memory: null
+      memory: memoryReading(),
+      net: active ? { down: Math.round(spike ? 48 * MB : down), up: Math.round(up) } : null,
+      disk: active ? { read: Math.round(read), write: Math.round(write) } : null,
+      gpu: active && hasGpu ? round1(gpuUse) : null
     })
     t += STEP_MS
   }
@@ -342,11 +398,113 @@ function sections(): Sections {
     load: !windows,
     memory: true,
     processes: !windows,
-    network: false,
-    disk: false,
-    gpu: false,
-    battery: false,
-    energy: false
+    network: !windows,
+    disk: !windows,
+    gpu: hasGpu,
+    battery: hasBattery,
+    energy: !windows
+  }
+}
+
+const VOLUMES: Volume[] = [
+  { name: 'Macintosh HD', mount: '/', startup: true, total: 494 * GB, available: 119 * GB },
+  {
+    name: 'Backup Drive',
+    mount: '/Volumes/Backup Drive',
+    startup: false,
+    total: 2 * 1024 * GB,
+    available: 800 * GB
+  }
+]
+
+function latest(): Sample | null {
+  return samples[samples.length - 1] ?? null
+}
+
+function networkReading(now: number): NetworkReading | null {
+  const sample = latest()
+  if (windows || !sample?.net) return null
+  const { down: rx, up: tx } = sample.net
+  return {
+    t: now,
+    down: rx,
+    up: tx,
+    packetsIn: Math.round(rx / 1900),
+    packetsOut: Math.round(tx / 360),
+    received: 18.4 * GB + (now - startedAt) * 2000,
+    sent: 2.1 * GB + (now - startedAt) * 300,
+    defaultInterface: 'en0',
+    interfaces: [
+      { name: 'en0', kind: null, counted: true, down: rx, up: tx },
+      { name: 'bridge100', kind: 'bridge', counted: false, down: 225 * 1024, up: 1.1 * MB },
+      { name: 'lo0', kind: 'loopback', counted: false, down: 96 * 1024, up: 96 * 1024 },
+      { name: 'utun3', kind: 'tunnel', counted: false, down: 12 * 1024, up: 4 * 1024 }
+    ]
+  }
+}
+
+function diskReading(now: number): PollResult['disk'] {
+  const sample = latest()
+  if (windows || !sample?.disk) return null
+  return {
+    t: now,
+    read: sample.disk.read,
+    write: sample.disk.write,
+    reads: Math.round(sample.disk.read / 30000),
+    writes: Math.round(sample.disk.write / 17000),
+    readTotal: 304 * GB,
+    writeTotal: 148 * GB
+  }
+}
+
+function gpuReading(): GpuReading | null {
+  const sample = latest()
+  if (!hasGpu || sample?.gpu === null || sample?.gpu === undefined) return null
+  return {
+    model: 'Apple M4 Pro',
+    utilization: sample.gpu,
+    renderer: Math.max(0, round1(sample.gpu - 1)),
+    inUse: 1.2 * GB,
+    allocated: 6.7 * GB
+  }
+}
+
+function batteryReading(): BatteryReading | null {
+  return hasBattery
+    ? { percent: 82, onBattery: true, state: 'discharging', minutesLeft: 222 }
+    : null
+}
+
+let energyPolls = 0
+
+function energyReading(now: number, input: PollInput): EnergyReading | null {
+  if (input.view !== 'energy' || windows) {
+    energyPolls = 0
+    return null
+  }
+  energyPolls += 1
+  if (energyPolls < 2 || params.get('energy') === 'wait') return null
+  const named = (name: string) => PROCESS_TABLE.find((row) => row.name === name)?.pid ?? 0
+  const impact: [string, number][] = [
+    ['WindowServer', 11],
+    ['Example Browser Helper (Renderer)', 9.9],
+    ['qemu-system-aarch64', 8.7],
+    ['Orca Helper (Renderer)', 7.8],
+    ['coreaudiod', 6.7],
+    ['node', 5.4]
+  ]
+  return {
+    t: now,
+    impact: impact.map(([name, value]) => ({ pid: named(name), name, impact: value })),
+    blockers: [
+      { pid: named('coreaudiod'), name: 'coreaudiod', kinds: ['system'] },
+      { pid: 36800, name: 'caffeinate', kinds: ['system'] },
+      {
+        pid: named('Example Browser Helper (Renderer)'),
+        name: 'Example Browser Helper (Renderer)',
+        kinds: ['system', 'display']
+      }
+    ]
   }
 }
 
@@ -383,7 +541,14 @@ function poll(input: PollInput): PollResult {
     seq: samples.length > 0 ? samples[samples.length - 1].seq : 0,
     samples: samples.filter((sample) => sample.seq > since),
     current: { load, uptime: 3 * 86400 + 4 * 3600 + (now - startedAt) / 1000 },
+    sections: sections(),
     memory: memoryReading(),
+    network: networkReading(now),
+    disk: diskReading(now),
+    volumes: windows ? null : VOLUMES,
+    gpu: gpuReading(),
+    battery: batteryReading(),
+    energy: energyReading(now, input),
     processes: processPage(input),
     intervalMs: STEP_MS,
     historyMs: HISTORY_MS
@@ -522,6 +687,24 @@ function runActions(list: string[]): void {
   if (verb === 'key') {
     const target = document.activeElement ?? document.body
     target.dispatchEvent(new KeyboardEvent('keydown', { key: argument, bubbles: true }))
+  }
+  if (verb === 'hover') {
+    const [index, fraction] = argument.split(':').map(Number)
+    const area = document.querySelectorAll<HTMLElement>('.vt-plot-area')[index]
+    if (area) {
+      const rect = area.getBoundingClientRect()
+      area.dispatchEvent(
+        new PointerEvent('pointermove', {
+          bubbles: true,
+          pointerType: 'mouse',
+          clientX: rect.left + rect.width * fraction,
+          clientY: rect.top + rect.height / 2
+        })
+      )
+    }
+  }
+  if (verb === 'chart') {
+    document.querySelectorAll<HTMLElement>('.vt-plot-area')[Number(argument)]?.focus()
   }
   if (verb === 'select') {
     const cell = [...document.querySelectorAll<HTMLElement>('tbody td.col-name')].find(

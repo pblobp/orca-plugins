@@ -1,0 +1,19 @@
++-o IOBlockStorageDriver  <class IOBlockStorageDriver, id 0x100000c6c, registered, matched, active, busy 0 (0 ms), retain 6>
+    {
+      "IOClass" = "IOBlockStorageDriver"
+      "Statistics" = {"Operations (Write)"=0,"Latency Time (Write)"=0,"Bytes (Read)"=0,"Errors (Write)"=0,"Total Time (Read)"=0,"Latency Time (Read)"=0,"Retries (Read)"=0,"Errors (Read)"=0,"Total Time (Write)"=0,"Bytes (Write)"=0,"Operations (Read)"=0,"Retries (Write)"=0}
+    }
++-o IOBlockStorageDriver  <class IOBlockStorageDriver, id 0x100000a55, registered, matched, active, busy 0 (99 ms), retain 8>
+  | {
+  |   "IOClass" = "IOBlockStorageDriver"
+  |   "Statistics" = {"Operations (Write)"=9299847,"Latency Time (Write)"=0,"Bytes (Read)"=312344535040,"Errors (Write)"=0,"Total Time (Read)"=1962409098784,"Latency Time (Read)"=0,"Retries (Read)"=0,"Errors (Read)"=0,"Total Time (Write)"=662704997616,"Bytes (Write)"=159386615808,"Operations (Read)"=9506420,"Retries (Write)"=0}
+  | }
+  +-o APPLE SSD AP0512Z Media  <class IOMedia, id 0x100000a5a, registered, matched, active, busy 0 (99 ms), retain 13>
+    +-o IOMediaBSDClient  <class IOMediaBSDClient, id 0x100000a6f, registered, matched, active, busy 0 (0 ms), retain 6>
++-o IOBlockStorageDriver  <class IOBlockStorageDriver, id 0x100003d74, registered, matched, active, busy 0 (19 ms), retain 8>
+  | {
+  |   "IOClass" = "IOBlockStorageDriver"
+  |   "Statistics" = {"Operations (Write)"=0,"Latency Time (Write)"=0,"Bytes (Read)"=7640706048,"Errors (Write)"=0,"Total Time (Read)"=389721598887,"Latency Time (Read)"=0,"Retries (Read)"=0,"Errors (Read)"=0,"Total Time (Write)"=0,"Bytes (Write)"=0,"Operations (Read)"=291090,"Retries (Write)"=0}
+  | }
+  +-o Apple disk image Media  <class IOMedia, id 0x100003d75, registered, matched, active, busy 0 (19 ms), retain 12>
+    +-o IOMediaBSDClient  <class IOMediaBSDClient, id 0x100003d77, registered, matched, active, busy 0 (1 ms), retain 7>

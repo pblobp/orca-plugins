@@ -272,7 +272,8 @@ describe('the protected set', () => {
         'name:WindowManager',
         'name:launchd',
         'path-contains:/orca/daemon-host/',
-        'name-prefix:Orca',
+        'name:Orca',
+        'name-prefix:Orca ',
         'name:systemd',
         'name:gnome-shell',
         'name:Xorg',
@@ -305,6 +306,34 @@ describe('the protected set', () => {
       const { value, kills } = deps([target])
       assert.deepEqual(await quitProcess(ask(5000), value), { ok: true }, path)
       assert.deepEqual(kills, [[5000, 'SIGTERM']])
+    }
+  })
+
+  for (const name of [
+    'Orca Helper',
+    'Orca Helper (Renderer)',
+    'Orca Terminal Host',
+    'Orca Agents'
+  ]) {
+    test(`Orca's own "${name}" is protected wherever it lives`, async () => {
+      const target = row(5100, `/opt/elsewhere/${name}`)
+      const { value, kills } = deps([target])
+      assert.deepEqual(await quitProcess(ask(5100), value), { ok: false, reason: 'protected' })
+      assert.deepEqual(kills, [])
+      assert.equal(createOfferer(CONTEXT, [target])(target), 'orca')
+    })
+  }
+
+  test('an unrelated app whose name starts with Orca, such as OrcaSlicer, is not protected', async () => {
+    for (const path of [
+      '/Applications/OrcaSlicer.app/Contents/MacOS/OrcaSlicer',
+      '/opt/tools/Orcanet'
+    ]) {
+      const target = row(5200, path)
+      const { value, kills } = deps([target])
+      assert.deepEqual(await quitProcess(ask(5200), value), { ok: true }, path)
+      assert.deepEqual(kills, [[5200, 'SIGTERM']])
+      assert.equal(createOfferer(CONTEXT, [target])(target), 'allowed')
     }
   })
 

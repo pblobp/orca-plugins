@@ -71,7 +71,18 @@ test('the background tier samples total CPU every 5 s, without per-core history'
   assert.equal(time.nextDelay(), BACKGROUND_INTERVAL_MS)
   await time.advance(BACKGROUND_INTERVAL_MS)
   assert.deepEqual(samples, [
-    { seq: 1, t: time.now(), total: 30, user: 25, system: 5, cores: null, memory: null }
+    {
+      seq: 1,
+      t: time.now(),
+      total: 30,
+      user: 25,
+      system: 5,
+      cores: null,
+      memory: null,
+      net: null,
+      disk: null,
+      gpu: null
+    }
   ])
   await time.advance(BACKGROUND_INTERVAL_MS * 2)
   assert.deepEqual(

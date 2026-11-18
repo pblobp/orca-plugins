@@ -73,6 +73,8 @@ export const CLOSE_ICON: readonly Shape[] = [{ tag: 'path', attrs: { d: 'M4 4l8 
 
 export const CHEVRON_RIGHT: readonly Shape[] = [{ tag: 'path', attrs: { d: 'M6 3l5 5-5 5' } }]
 
+export const CHEVRON_LEFT: readonly Shape[] = [{ tag: 'path', attrs: { d: 'M10 3L5 8l5 5' } }]
+
 export const CHEVRON_DOWN: readonly Shape[] = [{ tag: 'path', attrs: { d: 'M3 6l5 5 5-5' } }]
 
 export const CHEVRON_UP: readonly Shape[] = [{ tag: 'path', attrs: { d: 'M3 10l5-5 5 5' } }]

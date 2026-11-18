@@ -80,7 +80,13 @@ const MEMORY: MemoryReading = {
   pressure: 'normal'
 }
 
-function fakeSystem(extra: RawProcess[] = []) {
+const VOLUMES = [
+  { name: 'Macintosh HD', mount: '/', startup: true, total: 494 * GB, available: 119 * GB }
+]
+
+const BATTERY = { percent: 82, onBattery: true, state: 'discharging' as const, minutesLeft: 222 }
+
+function fakeSystem(extra: RawProcess[] = [], extras = false) {
   const step = { user: 250, nice: 0, sys: 50, idle: 700, irq: 0 }
   const totals: CpuTimes[] = Array.from({ length: 4 }, () => ({
     user: 1000,
@@ -94,8 +100,10 @@ function fakeSystem(extra: RawProcess[] = []) {
     detail: [] as number[],
     disposed: 0,
     identify: [] as number[],
-    kills: [] as [number, string][]
+    kills: [] as [number, string][],
+    energy: 0
   }
+  let counter = 0
   const identities = new Map<number, Identity | null>()
   let killError: string | null = null
   let cpuTime = 10
@@ -163,7 +171,68 @@ function fakeSystem(extra: RawProcess[] = []) {
   }
   const provider: Provider = {
     ...base,
-    sections: () => ({ ...base.sections(), memory: true, processes: true }),
+    sections: () => ({
+      ...base.sections(),
+      memory: true,
+      processes: true,
+      network: extras,
+      disk: extras,
+      gpu: extras,
+      battery: extras,
+      energy: extras
+    }),
+    async network() {
+      if (!extras) return null
+      counter += 1
+      return [
+        {
+          name: 'en0',
+          rxBytes: counter * 3_000_001,
+          txBytes: counter * 500_003,
+          rxPackets: counter * 2000,
+          txPackets: counter * 1000
+        },
+        {
+          name: 'utun3',
+          rxBytes: counter * 10_007,
+          txBytes: counter * 4_001,
+          rxPackets: counter * 20,
+          txPackets: counter * 10
+        }
+      ]
+    },
+    defaultInterface: async () => (extras ? 'en0' : null),
+    disk: async () =>
+      extras
+        ? [
+            {
+              id: '0x1',
+              readBytes: counter * 12_345_678,
+              writeBytes: counter * 3_210_987,
+              reads: counter * 412,
+              writes: counter * 180,
+              image: false
+            }
+          ]
+        : null,
+    volumes: async () => (extras ? VOLUMES : null),
+    gpu: async () =>
+      extras
+        ? {
+            model: 'Apple M4 Pro',
+            utilization: 25.5,
+            renderer: 24,
+            inUse: 1.2 * GB,
+            allocated: 6.7 * GB
+          }
+        : null,
+    battery: async () => (extras ? BATTERY : null),
+    async energy() {
+      calls.energy += 1
+      return extras ? [{ pid: 42, impact: 12.5 }] : null
+    },
+    assertions: async () =>
+      extras ? [{ pid: 300, name: 'Example App', type: 'NoIdleSleepAssertion' }] : null,
     memory: async () => MEMORY,
     async processes() {
       calls.processes += 1
@@ -254,10 +323,11 @@ async function setup(
     program?: string | null
     extra?: RawProcess[]
     refuseStatusBar?: boolean
+    extras?: boolean
   } = {}
 ): Promise<Setup> {
   const time = fakeClock(START)
-  const system = fakeSystem(options.extra)
+  const system = fakeSystem(options.extra, options.extras)
   const cli = {
     calls: [] as string[][],
     program: options.program === undefined ? '/Orca.app/orca' : options.program
@@ -356,7 +426,10 @@ test('poll answers the whole history first, then only new samples', async () => 
       user: 25,
       system: 5,
       cores: [30, 30, 30, 30],
-      memory: MEMORY
+      memory: MEMORY,
+      net: null,
+      disk: null,
+      gpu: null
     }
   ])
 
@@ -379,6 +452,77 @@ test('poll answers the whole history first, then only new samples', async () => 
     restarted.samples.map((sample) => sample.seq),
     [1, 2]
   )
+  assert.deepEqual(worker.refusals, [])
+  await worker.deactivate()
+})
+
+test('poll answers network, disk, GPU, volumes and battery, and energy only in the Energy view', async () => {
+  const { worker, time, system } = await setup({ extras: true })
+  let result = (await worker.request('os-vitals.poll', { view: 'overview' })) as PollResult
+  assert.equal(result.sections.network, true)
+  assert.deepEqual(result.volumes, VOLUMES)
+  assert.deepEqual(result.battery, BATTERY)
+  for (let i = 0; i < 2; i++) {
+    await time.advance(2000)
+    result = (await worker.request('os-vitals.poll', {
+      view: 'overview',
+      since: result.seq,
+      run: result.run
+    })) as PollResult
+  }
+  const last = result.samples[result.samples.length - 1]
+  assert.deepEqual(last.net, { down: 1_500_001, up: 250_002 })
+  assert.deepEqual(last.disk, { read: 6_172_839, write: 1_605_494 })
+  assert.equal(last.gpu, 25.5)
+  assert.equal(result.network?.defaultInterface, 'en0')
+  assert.equal(result.network?.received, 2 * 3_000_001)
+  assert.deepEqual(
+    result.network?.interfaces.map((row) => [row.name, row.counted]),
+    [
+      ['en0', true],
+      ['utun3', false]
+    ]
+  )
+  assert.equal(result.disk?.reads, 206)
+  assert.equal(result.gpu?.model, 'Apple M4 Pro')
+  assert.equal(result.energy, null)
+  assert.equal(system.calls.energy, 0)
+
+  result = (await worker.request('os-vitals.poll', { view: 'energy' })) as PollResult
+  await time.advance(10)
+  result = (await worker.request('os-vitals.poll', { view: 'energy' })) as PollResult
+  assert.deepEqual(result.energy?.impact, [{ pid: 42, name: 'node', impact: 12.5 }])
+  assert.deepEqual(result.energy?.blockers, [{ pid: 300, name: 'Example App', kinds: ['system'] }])
+  assert.equal(system.calls.energy, 1)
+
+  result = (await worker.request('os-vitals.poll', { view: 'disk' })) as PollResult
+  assert.equal(result.energy, null)
+  await time.advance(30_000)
+  assert.equal(system.calls.energy, 1)
+  assert.deepEqual(worker.refusals, [])
+  await worker.deactivate()
+})
+
+test('the first poll with every series and 15 minutes of history at 1 s stays far under 1 MiB', async () => {
+  const { worker, time } = await setup({
+    extras: true,
+    settings: { refreshSeconds: 1, historyMinutes: 15 }
+  })
+  let result = (await worker.request('os-vitals.poll', { view: 'overview' })) as PollResult
+  for (let i = 0; i < 15 * 60; i++) {
+    await time.advance(1000)
+    result = (await worker.request('os-vitals.poll', {
+      view: 'overview',
+      since: result.seq,
+      run: result.run
+    })) as PollResult
+  }
+  const full = (await worker.request('os-vitals.poll', { view: 'overview' })) as PollResult
+  assert.ok(full.samples.length >= 900, `history holds ${full.samples.length} samples`)
+  const complete = full.samples.filter((sample) => sample.net && sample.disk && sample.gpu !== null)
+  assert.ok(complete.length >= full.samples.length - 2)
+  const size = JSON.stringify(full).length
+  assert.ok(size < 400 * 1024, `the first poll is ${size} bytes`)
   assert.deepEqual(worker.refusals, [])
   await worker.deactivate()
 })

@@ -1,6 +1,18 @@
 import type { CpuTimes } from '../cpu.ts'
+import type { DiskDriver } from '../parse/ioreg-disk.ts'
+import type { InterfaceCounters } from '../parse/netstat.ts'
+import type { Assertion } from '../parse/pmset.ts'
 import type { Identity, RawDetail, RawProcess } from '../parse/ps.ts'
-import type { CoreInfo, LoadAverage, MemoryReading, Sections } from '../protocol.ts'
+import type { EnergySample } from '../parse/top.ts'
+import type {
+  BatteryReading,
+  CoreInfo,
+  GpuReading,
+  LoadAverage,
+  MemoryReading,
+  Sections,
+  Volume
+} from '../protocol.ts'
 
 export type Provider = {
   platform: string
@@ -16,6 +28,14 @@ export type Provider = {
   processes(): Promise<RawProcess[] | null>
   processDetail(pid: number): Promise<RawDetail | null>
   identify(pid: number): Promise<Identity | null>
+  network(): Promise<InterfaceCounters[] | null>
+  defaultInterface(): Promise<string | null>
+  disk(): Promise<DiskDriver[] | null>
+  volumes(): Promise<Volume[] | null>
+  gpu(): Promise<GpuReading | null>
+  battery(): Promise<BatteryReading | null>
+  energy(): Promise<EnergySample[] | null>
+  assertions(): Promise<Assertion[] | null>
   dispose(): void
 }
 

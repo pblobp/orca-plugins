@@ -79,6 +79,14 @@ export function nodeOsProvider(source: OsSource, platform: string): Provider {
     processes: async () => null,
     processDetail: async () => null,
     identify: async () => null,
+    network: async () => null,
+    defaultInterface: async () => null,
+    disk: async () => null,
+    volumes: async () => null,
+    gpu: async () => null,
+    battery: async () => null,
+    energy: async () => null,
+    assertions: async () => null,
     dispose() {}
   }
 }

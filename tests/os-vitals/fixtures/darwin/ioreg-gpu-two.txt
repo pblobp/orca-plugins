@@ -1,0 +1,13 @@
++-o IntelAccelerator  <class IntelAccelerator, id 0x100000400, registered, matched, active, busy 0 (12 ms), retain 40>
+    {
+      "IOClass" = "IntelAccelerator"
+      "PerformanceStatistics" = {"Device Utilization %"=3,"In use system memory"=268435456,"Alloc system memory"=1073741824}
+    }
+    
++-o AMDRadeonX6000_AMDNavi14GraphicsAccelerator  <class AMDRadeonX6000_AMDNavi14GraphicsAccelerator, id 0x100000500, registered, matched, active, busy 0 (40 ms), retain 60>
+    {
+      "IOClass" = "AMDRadeonX6000_AMDNavi14GraphicsAccelerator"
+      "model" = <"AMD Radeon Pro 5500M">
+      "PerformanceStatistics" = {"Device Utilization %"=41,"GPU Activity(%)"=41,"vramUsedBytes"=1610612736,"vramFreeBytes"=2684354560}
+    }
+    
