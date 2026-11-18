@@ -55,6 +55,15 @@ applies. It exists for programs with no fixed path, such as Orca's own CLI. **Th
 every such exception, and the code of its function, before it merges.** See
 [policy/README.md](../policy/README.md).
 
+The checker does not follow scopes, so a few harmless names fail too. Avoid them:
+
+- A variable, parameter or property named `spawn`, `execFile`, `execFileSync`, `spawnSync` or
+  `execSync`, unless it is the direct call to that function. Give an injected runner another name.
+- A local variable or parameter named `process` or `window`, used on its own.
+- Any `.constructor` access, and the strings `constructor` and `eval`.
+- A string literal anywhere inside the first argument of `setTimeout`, `setInterval` or
+  `setImmediate`, even inside an inline callback. Pass a named function instead.
+
 To keep the literal-program rule workable, give each command its own call site, and share the rest
 of the work through a helper that takes a callback:
 
